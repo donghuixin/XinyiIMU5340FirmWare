@@ -429,6 +429,9 @@ static void serial_thread(void) {
   /* Scan I2C devices */
   meow_i2c_scan();
 
+  // 新增：记录上一次执行电量检查的时间戳
+  int64_t last_bat_check_time = k_uptime_get();
+
   /* Main loop: read chars from UART and run pending BLE commands */
   while (1) {
     if (pending_ble_cmd == 1) {
@@ -496,36 +499,63 @@ static void serial_thread(void) {
         }
       }
     }
-
-    unsigned char c;
-    if (uart_poll_in(uart_dev, &c) == 0) {
-      if (c == 's') {
-        imu_start();
-      } else if (c == 'p') {
-        imu_stop();
-      } else if (c == 'b') {
-        fill_bat_pkt();
-        bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
-      } else if (c == 'R') {
-        pending_ble_cmd = 20;
-      } else if (c == 'G') {
-        pending_ble_cmd = 21;
-      } else if (c == 'B') {
-        pending_ble_cmd = 22;
-      } else if (c == 'Y') {
-        pending_ble_cmd = 23;
-      } else if (c == 'P') {
-        pending_ble_cmd = 24;
-      } else if (c == 'C') {
-        pending_ble_cmd = 25;
-      } else if (c == 'W') {
-        pending_ble_cmd = 26;
-      } else if (c == 'O') {
-        pending_ble_cmd = 27;
-      }
-    }
-    k_sleep(K_MSEC(10));
   }
+}
+
+/* ========================================================== */
+/* ==== 新增：低电量 (<30%) 每 5 秒主动推送机制 ==== */
+/* ========================================================== */
+int64_t now = k_uptime_get();
+if (now - last_bat_check_time >= 5000) { // 5000 毫秒 = 5 秒
+  last_bat_check_time = now;             // 重置计时器
+
+  // 查询电量计当前的真实 SOC (State of Charge)
+  float current_soc = fuel_gauge.state_of_charge();
+
+  // 如果电量低于 30%，则主动打包并发送蓝牙 Notify
+  if (current_soc < 30.0f) {
+    fill_bat_pkt(); // 调用你已有的函数，更新 bat_pkt 结构体
+
+    // 发送给所有订阅了电量特征值的蓝牙主机 (网页)
+    int ret = bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
+    if (ret == 0) {
+      // 可选：在串口也打印一个低电量警告
+      uart_printf("[WARNING] Battery low (%.1f%%), auto-notified via BLE!\r\n",
+                  current_soc);
+    }
+  }
+}
+/* ========================================================== */
+
+unsigned char c;
+if (uart_poll_in(uart_dev, &c) == 0) {
+  if (c == 's') {
+    imu_start();
+  } else if (c == 'p') {
+    imu_stop();
+  } else if (c == 'b') {
+    fill_bat_pkt();
+    bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
+  } else if (c == 'R') {
+    pending_ble_cmd = 20;
+  } else if (c == 'G') {
+    pending_ble_cmd = 21;
+  } else if (c == 'B') {
+    pending_ble_cmd = 22;
+  } else if (c == 'Y') {
+    pending_ble_cmd = 23;
+  } else if (c == 'P') {
+    pending_ble_cmd = 24;
+  } else if (c == 'C') {
+    pending_ble_cmd = 25;
+  } else if (c == 'W') {
+    pending_ble_cmd = 26;
+  } else if (c == 'O') {
+    pending_ble_cmd = 27;
+  }
+}
+k_sleep(K_MSEC(10));
+}
 }
 
 /* Manual thread definition for deferred start — started AFTER USB enable */
