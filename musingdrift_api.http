@@ -1,0 +1,12 @@
+### 调用 musingdrift API 示例
+
+# 替换为你实际要调用的 API 路径和方法
+POST https://api.musingdrift.com/your/api/endpoint
+Authorization: Bearer sk-aqqRTWU6YZ9iY1iLPzyQZepJoU8IjdcPpQFKKYXopcRTfOAX
+Content-Type: application/json
+
+{
+  "key": "value"
+}
+
+### 你可以复制上面内容，修改 endpoint 和 body，保存后点击 Send Request 按钮直接调用 API。

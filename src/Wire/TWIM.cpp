@@ -48,4 +48,6 @@ void TWIM::release() { k_mutex_unlock(&mutex); }
 
 TWIM I2C1(DEVICE_DT_GET(DT_NODELABEL(i2c1)));
 TWIM I2C2(DEVICE_DT_GET(DT_NODELABEL(i2c2)));
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(i2c3), okay)
 TWIM I2C3(DEVICE_DT_GET(DT_NODELABEL(i2c3)));
+#endif

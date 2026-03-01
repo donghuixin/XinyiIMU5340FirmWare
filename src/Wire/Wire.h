@@ -83,6 +83,8 @@ private:
 
 extern arduino::MbedI2C Wire;
 extern arduino::MbedI2C Wire1;
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(i2c3), okay)
 extern arduino::MbedI2C Wire2;
+#endif
 
 typedef arduino::MbedI2C TwoWire;

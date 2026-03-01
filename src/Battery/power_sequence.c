@@ -13,11 +13,7 @@ LOG_MODULE_REGISTER(power_sequence, LOG_LEVEL_INF);
 #define BQ25120A_LS_LDO_CTRL_REG 0x07
 #define BQ25120A_LS_LDO_CTRL_VAL 0xE4
 
-/* P0.27 – wakes BQ25120A from ship mode / asserts LSCTRL */
-static const struct gpio_dt_spec ldo_ctrl_gpio =
-	GPIO_DT_SPEC_GET(DT_ALIAS(ldo_ctrl), enable_gpios);
-
-/* P0.14 – LS_LBEN: physical enable for BQ25120A load-switch output */
+/* P0.27 – LSCTRL: enable BQ25120A load-switch output / wake from ship mode */
 #define LS_EN_NODE DT_CHILD(DT_NODELABEL(bq25120a), load_switch)
 static const struct gpio_dt_spec ls_en_gpio =
 	GPIO_DT_SPEC_GET(LS_EN_NODE, enable_gpios);
@@ -29,15 +25,15 @@ void force_load_switches_on(void)
 {
 	int ret;
 
-	/* --- Step 1: assert LSCTRL (P0.27) to wake PMIC --- */
-	if (!device_is_ready(ldo_ctrl_gpio.port)) {
-		LOG_ERR("ldo_ctrl GPIO not ready");
+	/* --- Step 1: assert LSCTRL (P0.27) to wake PMIC and enable 3V3 rail --- */
+	if (!gpio_is_ready_dt(&ls_en_gpio)) {
+		LOG_ERR("LS enable GPIO not ready");
 		return;
 	}
 
-	ret = gpio_pin_configure_dt(&ldo_ctrl_gpio, GPIO_OUTPUT_ACTIVE);
+	ret = gpio_pin_configure_dt(&ls_en_gpio, GPIO_OUTPUT_ACTIVE);
 	if (ret) {
-		LOG_ERR("Failed to configure ldo_ctrl: %d", ret);
+		LOG_ERR("Failed to configure LS enable (P0.27): %d", ret);
 		return;
 	}
 
@@ -56,19 +52,7 @@ void force_load_switches_on(void)
 		return;
 	}
 
-	/* --- Step 3: drive LS_LBEN (P0.14) HIGH to enable load-switch output --- */
-	if (!device_is_ready(ls_en_gpio.port)) {
-		LOG_ERR("LS enable GPIO not ready");
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&ls_en_gpio, GPIO_OUTPUT_ACTIVE);
-	if (ret) {
-		LOG_ERR("Failed to configure LS enable (P0.14): %d", ret);
-		return;
-	}
-
-	LOG_INF("Load-switch enabled (P0.14 HIGH, EN_LS=1)");
+	LOG_INF("Load-switch enabled (P0.27 HIGH, EN_LS=1)");
 
 	/* Allow rails to stabilise (datasheet: 600 µs, add margin) */
 	k_msleep(50);

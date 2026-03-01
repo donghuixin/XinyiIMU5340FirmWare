@@ -57,31 +57,29 @@ bool DFRobot_BMI160::begin() {
 void DFRobot_BMI160::setLowPower() {
   softReset();
   delay(100);
-  setMagnConf();
+  // setMagnConf();  // BMI160 has no magnetometer
+  // delay(100);
+  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x12); // Accel low power
   delay(100);
-  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x12);
-  delay(100);
-  /* Set gyro to normal mode */
+  /* Set gyro to fast startup mode */
   writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x17);
   delay(100);
-  /* Set mag to normal mode */
-  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x1B);
-  delay(100);
+  // writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x1B); // No mag on BMI160
+  // delay(100);
 }
 
 void DFRobot_BMI160::wakeUp() {
   softReset();
   delay(100);
-  setMagnConf();
-  delay(100);
-  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);
+  // setMagnConf();  // BMI160 has no magnetometer
+  // delay(100);
+  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11); // Accel normal mode
   delay(100);
   /* Set gyro to normal mode */
   writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
   delay(100);
-  /* Set mag to normal mode */
-  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x19);
-  delay(100);
+  // writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x19); // No mag on BMI160
+  // delay(100);
 }
 
 bool DFRobot_BMI160::softReset() {
@@ -216,30 +214,29 @@ void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
                                 sBmx160SensorData_t *gyro,
                                 sBmx160SensorData_t *accel) {
 
-  uint8_t data[23] = {0};
+  // BMI160: read 12 bytes from 0x0C (6 bytes gyro + 6 bytes accel)
+  uint8_t data[12] = {0};
   int16_t x = 0, y = 0, z = 0;
-  // put your main code here, to run repeatedly:
-  readReg(BMX160_MAG_DATA_ADDR, data, 23);
+
+  readReg(BMX160_GYRO_DATA_ADDR, data, 12);
+
   if (magn) {
+    // No magnetometer on BMI160 — zero out
+    magn->x = 0; magn->y = 0; magn->z = 0;
+  }
+  if (gyro) {
     x = (int16_t)(((uint16_t)data[1] << 8) | data[0]);
     y = (int16_t)(((uint16_t)data[3] << 8) | data[2]);
     z = (int16_t)(((uint16_t)data[5] << 8) | data[4]);
-    magn->x = x * BMX160_MAGN_UT_LSB;
-    magn->y = y * BMX160_MAGN_UT_LSB;
-    magn->z = z * BMX160_MAGN_UT_LSB;
-  }
-  if (gyro) {
-    x = (int16_t)(((uint16_t)data[9] << 8) | data[8]);
-    y = (int16_t)(((uint16_t)data[11] << 8) | data[10]);
-    z = (int16_t)(((uint16_t)data[13] << 8) | data[12]);
     gyro->x = x * gyroRange;
     gyro->y = y * gyroRange;
     gyro->z = z * gyroRange;
   }
   if (accel) {
-    x = (int16_t)(((uint16_t)data[15] << 8) | data[14]);
-    y = (int16_t)(((uint16_t)data[17] << 8) | data[16]);
-    z = (int16_t)(((uint16_t)data[19] << 8) | data[18]);
+    // Accel data follows gyro at offset 6
+    x = (int16_t)(((uint16_t)data[7] << 8) | data[6]);
+    y = (int16_t)(((uint16_t)data[9] << 8) | data[8]);
+    z = (int16_t)(((uint16_t)data[11] << 8) | data[10]);
     accel->x = x * accelRange;
     accel->y = y * accelRange;
     accel->z = z * accelRange;

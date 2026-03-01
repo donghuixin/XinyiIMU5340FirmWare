@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huixin IMU Sync Console - Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&display=swap');
+
+        body {
+            background-color: #000;
+            font-family: 'Fira Code', monospace;
+            color: #d1d5db;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #000;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
+        }
+
+        .log-line {
+            display: block;
+            white-space: nowrap;
+            font-size: 8.5px;
+            line-height: 1.2;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .log-ts {
+            color: #eab308;
+            margin-top: 5px;
+            font-weight: bold;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 2px;
+        }
+
+        .log-pkg {
+            color: #22d3ee;
+            font-style: italic;
+        }
+
+        .log-data {
+            color: #4ade80;
+        }
+
+        .imu-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 0.4rem;
+            height: 100%;
+        }
+
+        .connected-card {
+            border-color: #0891b2 !important;
+            opacity: 1 !important;
+        }
+
+        .charging-indicator {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-black">
+    <header class="flex justify-between items-center px-4 py-1.5 bg-gray-900 border-b border-gray-800 z-10">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-7 h-7 bg-cyan-500 rounded flex items-center justify-center text-black font-black text-base italic">
+                H</div>
+            <div>
+                <h1 class="text-xs font-black text-white tracking-widest uppercase leading-none">Huixin IMU Sync</h1>
+                <p class="text-[7px] text-cyan-700 uppercase tracking-widest">6-Axis Precision Sampling Array</p>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="syncAll('s')"
+                class="bg-green-600 text-black font-bold px-5 py-1 rounded text-[9px] uppercase">同步开启</button>
+            <button onclick="syncAll('p')"
+                class="bg-red-700 text-white font-bold px-5 py-1 rounded text-[9px] uppercase">同步停止</button>
+            <button onclick="syncAll('BAT')"
+                class="bg-yellow-600 text-black font-bold px-5 py-1 rounded text-[9px] uppercase hover:bg-yellow-500">查询电量</button>
+        </div>
+    </header>
+
+    <main class="flex-1 p-2 overflow-hidden">
+        <div id="master-container" class="imu-grid"></div>
+    </main>
+
+    <footer class="h-24 bg-black border-t border-gray-800 flex flex-col font-mono">
+        <div id="global-log" class="flex-1 overflow-y-auto p-2 text-[10px] space-y-0.5 custom-scrollbar text-gray-500">
+            <div>系统已就绪。请逐个配对设备。</div>
+            <div>支持6轴数据显示：加速度计(ax/ay/az)、陀螺仪(gx/gy/gz)</div>
+            <div>电量显示：绿色(正常) | 黄色(低电量) | 红色(极低电量) | ⚡(充电中)</div>
+        </div>
+    </footer>
+
+    <script>
+        /* ================================================================
+         * 固件 Meow 自定义 GATT 服务 UUID（匹配 meow_ctrl_service.cpp）
+         * ================================================================ */
+        const SRV_UUID = 'a0e3d901-0c1f-4b5e-8e4a-1a2b3c4d5e6f'; // Meow Service
+        const CMD_UUID = 'a0e3d902-0c1f-4b5e-8e4a-1a2b3c4d5e6f'; // Command (Write)
+        const IMU_UUID = 'a0e3d903-0c1f-4b5e-8e4a-1a2b3c4d5e6f'; // IMU Data (Notify)
+        const BAT_UUID = 'a0e3d904-0c1f-4b5e-8e4a-1a2b3c4d5e6f'; // Battery  (Read+Notify)
+        const imus = {};
+
+        /* 数据包大小（匹配固件 struct FullPacket / BatteryPacket）
+         * IMU: header(2) + timestamp(4) + 10×IMUSample(6×int16=12B) = 126 字节
+         * BAT: header(2) + float(4) + isCharging(1) + level(1) = 8 字节       */
+        const FULL_PACKET_SIZE = 126;
+        const BAT_PACKET_SIZE = 8;
+
+        // 初始化8个IMU设备 (L1-L4, R1-R4)
+        ['L', 'R'].forEach(side => {
+            for (let i = 1; i <= 4; i++) {
+                const key = `${side}-${i}`;
+                const name = `Xinyi_IMU_${side === 'L' ? 'Left' : 'Right'}_${i}`;
+                imus[key] = {
+                    key, name, connected: false, cmdChar: null, dataCount: 0, prevCount: 0,
+                    imuBuffer: new Uint8Array(0), logLines: [], lastBat: { volt: 0, level: 0, charging: false }
+                };
+            }
+        });
+
+        function initUI() {
+            const container = document.getElementById('master-container');
+            Object.values(imus).forEach(imu => {
+                const card = document.createElement('div');
+                card.id = `card-${imu.key}`;
+                card.className = `border border-gray-900 bg-gray-950/50 rounded flex flex-col overflow-hidden opacity-50 transition-all`;
+                card.innerHTML = `
+                    <div class="flex justify-between items-center px-2 py-1 bg-gray-900/80 border-b border-gray-800">
+                        <span class="text-[9px] font-bold text-gray-400">${imu.name}</span>
+                        <div class="flex items-center gap-2">
+                            <span id="bat-${imu.key}" class="text-[8px] text-gray-600 font-mono">--V (--%)</span>
+                            <span id="hz-${imu.key}" class="text-[8px] text-cyan-800 font-mono">0Hz</span>
+                        </div>
+                    </div>
+                    <div class="flex border-b border-gray-900">
+                        <button onclick="connectDevice('${imu.key}')" id="btn-conn-${imu.key}" class="flex-1 py-1 text-[8px] bg-blue-900/20 text-blue-400 hover:bg-blue-800/40 border-r border-gray-900">连接</button>
+                        <button onclick="disconnectDevice('${imu.key}')" id="btn-disc-${imu.key}" class="hidden flex-1 py-1 text-[8px] bg-red-900/20 text-red-400 hover:bg-red-800/40">断开</button>
+                    </div>
+                    <div id="log-${imu.key}" class="flex-1 overflow-y-auto p-1 bg-black custom-scrollbar leading-none"></div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function connectDevice(key) {
+            const imu = imus[key];
+            try {
+                /* 使用名称前缀过滤 - 匹配 Xinyi 或 Meow 开头的设备 */
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'Xinyi' }, { namePrefix: 'Meow' }],
+                    optionalServices: [SRV_UUID]
+                });
+
+                device.addEventListener('gattserverdisconnected', () => {
+                    disconnectDevice(key);
+                    addLog(`设备已断开连接: ${imu.name}`, 'text-yellow-500');
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SRV_UUID);
+
+                /* 获取三个特征：命令(Write)、IMU(Notify)、电量(Read+Notify) */
+                imu.cmdChar = await service.getCharacteristic(CMD_UUID);
+
+                const imuChar = await service.getCharacteristic(IMU_UUID);
+                await imuChar.startNotifications();
+                imuChar.addEventListener('characteristicvaluechanged', (e) => onIMUData(key, e));
+
+                const batChar = await service.getCharacteristic(BAT_UUID);
+                await batChar.startNotifications();
+                batChar.addEventListener('characteristicvaluechanged', (e) => onBatData(key, e));
+
+                imu.connected = true;
+                imu.gattServer = server;
+                imu.device = device;
+
+                document.getElementById(`card-${key}`).classList.add('connected-card');
+                const btnConn = document.getElementById(`btn-conn-${key}`);
+                const btnDisc = document.getElementById(`btn-disc-${key}`);
+                btnConn.innerText = '● 已连接';
+                btnConn.classList.add('cursor-not-allowed', 'opacity-50');
+                btnConn.disabled = true;
+                btnDisc.classList.remove('hidden');
+
+                addLog(`已成功连接: ${imu.name} (6轴数据+电量检测)`, 'success');
+            } catch (err) {
+                addLog(`连接失败 [${imu.name}]: ${err.message}`, 'error');
+            }
+        }
+
+        function disconnectDevice(key) {
+            const imu = imus[key];
+            if (imu.gattServer && imu.gattServer.connected) {
+                imu.gattServer.disconnect();
+            }
+
+            imu.connected = false;
+            imu.gattServer = null;
+            imu.device = null;
+            imu.cmdChar = null;
+            imu.imuBuffer = new Uint8Array(0);
+            imu.dataCount = 0;
+            imu.prevCount = 0;
+            imu.lastBat = { volt: 0, level: 0, charging: false };
+
+            const card = document.getElementById(`card-${key}`);
+            const btnConn = document.getElementById(`btn-conn-${key}`);
+            const btnDisc = document.getElementById(`btn-disc-${key}`);
+            card.classList.remove('connected-card');
+            btnConn.innerText = '连接';
+            btnConn.classList.remove('cursor-not-allowed', 'opacity-50');
+            btnConn.disabled = false;
+            btnDisc.classList.add('hidden');
+
+            document.getElementById(`hz-${key}`).innerText = '0Hz';
+            document.getElementById(`bat-${key}`).innerHTML = '--V (--%)';
+            document.getElementById(`bat-${key}`).className = 'text-[8px] text-gray-600 font-mono';
+
+            addLog(`已断开: ${imu.name}`, 'text-gray-500');
+        }
+
+        /* ==============================================================
+         *  IMU 数据处理（独立 Notify 特征，只收 0xAA55 包）
+         * ============================================================== */
+        function onIMUData(key, event) {
+            const imu = imus[key];
+            const raw = new Uint8Array(event.target.value.buffer);
+
+            // 缓冲区拼接
+            const combined = new Uint8Array(imu.imuBuffer.length + raw.length);
+            combined.set(imu.imuBuffer);
+            combined.set(raw, imu.imuBuffer.length);
+            imu.imuBuffer = combined;
+
+            while (imu.imuBuffer.length >= FULL_PACKET_SIZE) {
+                // 找包头 0xAA 0x55
+                let startIdx = -1;
+                for (let i = 0; i <= imu.imuBuffer.length - FULL_PACKET_SIZE; i++) {
+                    if (imu.imuBuffer[i] === 0xAA && imu.imuBuffer[i + 1] === 0x55) {
+                        startIdx = i;
+                        break;
+                    }
+                }
+
+                if (startIdx === -1) break;
+
+                if (startIdx > 0) {
+                    imu.imuBuffer = imu.imuBuffer.slice(startIdx);
+                }
+
+                const dv = new DataView(imu.imuBuffer.buffer, imu.imuBuffer.byteOffset, FULL_PACKET_SIZE);
+                try {
+                    const ts = dv.getUint32(2, true);
+                    const now = new Date();
+                    const sysTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+
+                    const block = [
+                        `<span class="log-line log-ts">[${sysTime}]</span>`,
+                        `<span class="log-line log-pkg">PKG ts=${ts}</span>`
+                    ];
+
+                    /* 解析10个采样点的6轴数据
+                     * 每采样 12 字节: ax(2) ay(2) az(2) gx(2) gy(2) gz(2) */
+                    for (let i = 0; i < 10; i++) {
+                        const offset = 6 + (i * 12); // header(2) + timestamp(4) + i*12
+                        const ax = dv.getInt16(offset, true);
+                        const ay = dv.getInt16(offset + 2, true);
+                        const az = dv.getInt16(offset + 4, true);
+                        const gx = dv.getInt16(offset + 6, true);
+                        const gy = dv.getInt16(offset + 8, true);
+                        const gz = dv.getInt16(offset + 10, true);
+
+                        const vals = [ax, ay, az, gx, gy, gz].map(v => v.toString().padStart(6));
+                        block.push(`<span class="log-line log-data">A:${vals[0]},${vals[1]},${vals[2]} G:${vals[3]},${vals[4]},${vals[5]}</span>`);
+                    }
+
+                    imu.logLines = [...imu.logLines, ...block].slice(-80);
+                    const logDiv = document.getElementById(`log-${key}`);
+                    logDiv.innerHTML = imu.logLines.join('');
+                    logDiv.scrollTop = logDiv.scrollHeight;
+
+                    imu.dataCount += 10;
+                } catch (e) {
+                    addLog(`[${imu.name}] IMU包解析错误: ${e.message}`, 'error');
+                }
+
+                imu.imuBuffer = imu.imuBuffer.slice(FULL_PACKET_SIZE);
+            }
+
+            // 缓冲区保护
+            if (imu.imuBuffer.length > 2048) {
+                imu.imuBuffer = new Uint8Array(0);
+                addLog(`[${imu.name}] IMU缓冲区溢出，已重置`, 'text-yellow-500');
+            }
+        }
+
+        /* ==============================================================
+         *  电量数据处理（独立 Notify 特征，收 0xBB66 包）
+         * ============================================================== */
+        function onBatData(key, event) {
+            const imu = imus[key];
+            const raw = new Uint8Array(event.target.value.buffer);
+
+            // 电量包很小(8B)，通常一次通知就是完整包
+            if (raw.length < BAT_PACKET_SIZE) {
+                addLog(`[${imu.name}] 电量包过短: ${raw.length}B`, 'text-yellow-500');
+                return;
+            }
+
+            // 验证包头
+            if (raw[0] !== 0xBB || raw[1] !== 0x66) {
+                addLog(`[${imu.name}] 电量包头异常: 0x${raw[0].toString(16)} 0x${raw[1].toString(16)}`, 'text-yellow-500');
+                return;
+            }
+
+            try {
+                const dv = new DataView(raw.buffer, raw.byteOffset, BAT_PACKET_SIZE);
+                const voltNum = parseFloat(dv.getFloat32(2, true).toFixed(2));
+                const isCharging = dv.getUint8(6) === 1;
+                const levelNum = dv.getUint8(7);
+
+                const batEl = document.getElementById(`bat-${key}`);
+                const chargingIcon = isCharging ? '<span class="text-green-500 charging-indicator">⚡</span>' : '';
+                batEl.innerHTML = `${voltNum.toFixed(2)}V (${levelNum}%) ${chargingIcon}`;
+
+                let batClass = 'text-green-400';
+                if (voltNum < 3.5) batClass = 'text-red-500';
+                else if (voltNum < 3.8) batClass = 'text-yellow-500';
+                batEl.className = `text-[8px] font-mono ${batClass}`;
+
+                imu.lastBat = { volt: voltNum, level: levelNum, charging: isCharging };
+
+                addLog(`${imu.name}: 电量 ${voltNum.toFixed(2)}V (${levelNum}%) ${isCharging ? '(充电中)' : ''}`, 'success');
+            } catch (e) {
+                addLog(`[${imu.name}] 电量解析错误: ${e.message}`, 'error');
+            }
+        }
+
+        /* ==============================================================
+         *  指令发送（写入 CMD 特征）
+         * ============================================================== */
+        async function sendCmd(key, cmd) {
+            const imu = imus[key];
+            if (imu.connected && imu.cmdChar) {
+                try {
+                    const encoder = new TextEncoder();
+                    await imu.cmdChar.writeValueWithoutResponse(encoder.encode(cmd));
+                    addLog(`发送指令到 ${imu.name}: ${cmd}`, 'text-gray-400');
+                } catch (err) {
+                    addLog(`发送指令失败 [${imu.name}]: ${err.message}`, 'error');
+                }
+            } else {
+                addLog(`跳过指令发送 [${imu.name}]: 设备未连接`, 'text-gray-500');
+            }
+        }
+
+        function syncAll(cmd) {
+            const cmdStr = cmd === 'BAT' ? 'BAT' : cmd;
+            const cmdName = cmd === 's' ? '同步开启采样' : cmd === 'p' ? '同步停止采样' : '批量查询电量';
+            Object.keys(imus).forEach(k => sendCmd(k, cmdStr));
+            addLog(`执行批量操作: ${cmdName}`, 'text-cyan-400');
+        }
+
+        function addLog(msg, type) {
+            const div = document.createElement('div');
+            div.className = type === 'error' ? 'text-red-500' : type === 'success' ? 'text-cyan-400' : type;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            const logContainer = document.getElementById('global-log');
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+
+        // 刷新率计算
+        setInterval(() => {
+            Object.keys(imus).forEach(k => {
+                const imu = imus[k];
+                if (imu.connected) {
+                    const hz = imu.dataCount - imu.prevCount;
+                    imu.prevCount = imu.dataCount;
+                    document.getElementById(`hz-${k}`).innerText = `${hz}Hz`;
+                    if (hz < 90 && hz > 0) {
+                        addLog(`[${imu.name}] 刷新率偏低: ${hz}Hz (正常104Hz)`, 'text-yellow-500');
+                    }
+                }
+            });
+        }, 1000);
+
+        window.onload = () => {
+            initUI();
+            addLog('Huixin IMU控制台已初始化 (Meow GATT v5)，等待设备连接...', 'text-gray-300');
+        };
+
+        window.addEventListener('beforeunload', () => {
+            Object.keys(imus).forEach(k => disconnectDevice(k));
+        });
+    </script>
+</body>
+
+</html>

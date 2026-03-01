@@ -55,6 +55,8 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 #include "meow_ctrl_service.h"
 
+#include <zephyr/bluetooth/services/nus.h>
+
 extern "C" void force_load_switches_on(void);
 
 static void i2c_bus_scan(const struct device *bus, const char *name) {
@@ -86,7 +88,7 @@ int main(void) {
   /* I2C bus scan for hardware discovery */
   i2c_bus_scan(DEVICE_DT_GET(DT_NODELABEL(i2c1)), "i2c1");
   i2c_bus_scan(DEVICE_DT_GET(DT_NODELABEL(i2c2)), "i2c2");
-  i2c_bus_scan(DEVICE_DT_GET(DT_NODELABEL(i2c3)), "i2c3");
+  /* i2c3 disabled in device tree, skip scan */
   LOG_INF("I2C scan complete");
 
   k_msleep(1000); // Wait for J-Link to poll RTT before touching hardware

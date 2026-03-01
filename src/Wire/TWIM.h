@@ -45,4 +45,6 @@ class TWIM
 
 extern TWIM I2C1;
 extern TWIM I2C2;
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(i2c3), okay)
 extern TWIM I2C3;
+#endif

@@ -51,7 +51,11 @@ public:
   Adafruit_BMP3XX();
 
   bool begin_I2C(uint8_t addr = DT_REG_ADDR(DT_NODELABEL(bmp388)),
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(i2c3), okay)
                  TWIM *_i2c = &I2C3);
+#else
+                 TWIM *_i2c = &I2C2);
+#endif
   //bool begin_SPI(uint8_t cs_pin, SPIClass *theSPI = &SPI);
   //bool begin_SPI(int8_t cs_pin, int8_t sck_pin, int8_t miso_pin,
   //               int8_t mosi_pin);

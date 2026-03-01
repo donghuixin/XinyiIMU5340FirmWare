@@ -52,7 +52,11 @@ struct BMA580_dev_inf {
 
 BMA580_dev_inf dev_info = {
     .addr = BMA5_I2C_ADDRESS,
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(i2c3), okay)
     .i2c_dev = &I2C3
+#else
+    .i2c_dev = &I2C2
+#endif
 };
 
 /*!

@@ -1,0 +1,36 @@
+{
+  "name": "musingdrift-copilot-extension",
+  "displayName": "Musingdrift Copilot Extension",
+  "description": "AI Copilot-like extension using musingdrift API.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": ">=1.70.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:extension.askMusingdrift"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.askMusingdrift",
+        "title": "Ask Musingdrift AI"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.70.0",
+    "typescript": "^4.8.0",
+    "tslint": "^6.1.3"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}

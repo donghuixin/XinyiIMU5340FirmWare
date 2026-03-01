@@ -18,7 +18,7 @@
 	 };
 
 	 aliases {
-		 ldo-ctrl = &ldo_ctrl;
+		 //ldo-ctrl = &ldo_ctrl;
 	 };
  
  
@@ -27,12 +27,15 @@
 		 gpios = <&gpio0 15 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
 	 };
 
+
+	 /*
 	ldo_ctrl: ldo_ctrl {
 		compatible = "regulator-fixed";
 		regulator-name = "pmic_lsctrl";
 		enable-gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
+	*/
  
 	 gpio_fwd: nrf-gpio-forwarder {
 		 compatible = "nordic,nrf-gpio-forwarder";
@@ -119,7 +122,7 @@
 
 		load-switch {
 			compatible = "load-switch";
-			enable-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+			enable-gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
 			power-delay-us = <600>; // 250us per datasheet
 			status = "okay";
         };
@@ -138,15 +141,16 @@
 	 pinctrl-0 = <&i2c2_default>;
 	 pinctrl-1 = <&i2c2_sleep>;
 	 pinctrl-names = "default", "sleep";
-	 clock-frequency = <I2C_BITRATE_FAST>;  // 400 kHz
+	 clock-frequency = <I2C_BITRATE_STANDARD>;  // 100 kHz
 	 zephyr,concat-buf-size = <512>;
      zephyr,flash-buf-max-size = <512>;
 
 	/* maxm86161 and mlx90632 not present on Meow Sense Tag, but keep nodes for DT_NODELABEL references */
 
 	bmx160: bmi160@68 {
-		compatible = "i2c-device";
+		compatible = "bosch,bmi160";
         reg = <0x68>;
+		label = "BMI160";
     };
 
 	maxm86161: maxm86161@62 {
@@ -162,7 +166,7 @@
  
  &i2c3 {
 	 compatible = "nordic,nrf-twim";
-	 status = "okay";
+	 status = "disabled";
 	 pinctrl-0 = <&i2c3_default>;
 	 pinctrl-1 = <&i2c3_sleep>;
 	 pinctrl-names = "default", "sleep";

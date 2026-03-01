@@ -67,7 +67,11 @@ bool MLX90632::begin()
   uint8_t deviceAddress = DT_REG_ADDR(DT_NODELABEL(mlx90632));
   //TWI  &wirePort = Wire2;
   MLX90632::status returnError;
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(i2c3), okay)
   if (begin(deviceAddress, I2C3, returnError) == true)
+#else
+  if (begin(deviceAddress, I2C2, returnError) == true)
+#endif
     return (true);
   return (false);
 }
