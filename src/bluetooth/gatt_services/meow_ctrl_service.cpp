@@ -35,7 +35,7 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/device.h>
-#include <zephyr/devicetree.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -369,8 +369,34 @@ static ssize_t write_cmd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
   case 'b':
     pending_ble_cmd = 3;
     break;
+  /* ==== RGB 颜色指令 ==== */
+  case 'R':
+    pending_ble_cmd = 20;
+    break; // 红色 (Red)
+  case 'G':
+    pending_ble_cmd = 21;
+    break; // 绿色 (Green)
+  case 'B':
+    pending_ble_cmd = 22;
+    break; // 蓝色 (Blue)
+  case 'Y':
+    pending_ble_cmd = 23;
+    break; // 黄色 (Yellow = R+G)
+  case 'P':
+    pending_ble_cmd = 24;
+    break; // 紫色 (Purple = R+B)
+  case 'C':
+    pending_ble_cmd = 25;
+    break; // 青色 (Cyan = G+B)
+  case 'W':
+    pending_ble_cmd = 26;
+    break; // 白色 (White = R+G+B)
+  case 'O':
+    pending_ble_cmd = 27;
+    break; // 关闭 (Off)
+  /* ====================== */
   default:
-    uart_printf("[CMD] Unknown command\r\n");
+    uart_printf("[CMD] Unknown command: %c\r\n", cmd);
     break;
   }
 
@@ -415,6 +441,60 @@ static void serial_thread(void) {
       pending_ble_cmd = 0;
       fill_bat_pkt();
       bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
+    } else if (pending_ble_cmd >= 20 && pending_ble_cmd <= 27) {
+      int color_cmd = pending_ble_cmd;
+      pending_ble_cmd = 0;
+
+      const struct device *i2c1_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+      if (device_is_ready(i2c1_dev)) {
+        uint8_t r = 0, g = 0, b = 0;
+        uint8_t bright = 0x55;
+
+        switch (color_cmd) {
+        case 20:
+          r = bright;
+          break; // 红
+        case 21:
+          g = bright;
+          break; // 绿
+        case 22:
+          b = bright;
+          break; // 蓝
+        case 23:
+          r = bright;
+          g = bright;
+          break; // 黄
+        case 24:
+          r = bright;
+          b = bright;
+          break; // 紫
+        case 25:
+          g = bright;
+          b = bright;
+          break; // 青
+        case 26:
+          r = bright;
+          g = bright;
+          b = bright;
+          break; // 白
+        case 27:
+          break; // 关
+        }
+
+        if (color_cmd == 27) {
+          i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x00); // 芯片休眠关闭
+          uart_printf("[LED] Turned OFF\r\n");
+        } else {
+          i2c_reg_write_byte(i2c1_dev, 0x30, 0x00,
+                             0x08); // 唤醒芯片进入Normal模式 (Bit 4:3 = 01)
+          i2c_reg_write_byte(i2c1_dev, 0x30, 0x06, r); // I_R (Red)
+          i2c_reg_write_byte(i2c1_dev, 0x30, 0x07, g); // I_G (Green)
+          i2c_reg_write_byte(i2c1_dev, 0x30, 0x08, b); // I_B (Blue)
+          i2c_reg_write_byte(i2c1_dev, 0x30, 0x04,
+                             0x15); // EN_CH (010101: All CH Linear Mode)
+          uart_printf("[LED] Color Set (R:%02X, G:%02X, B:%02X)\r\n", r, g, b);
+        }
+      }
     }
 
     unsigned char c;
@@ -425,8 +505,23 @@ static void serial_thread(void) {
         imu_stop();
       } else if (c == 'b') {
         fill_bat_pkt();
-        /* Also notify via BLE if connected */
         bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
+      } else if (c == 'R') {
+        pending_ble_cmd = 20;
+      } else if (c == 'G') {
+        pending_ble_cmd = 21;
+      } else if (c == 'B') {
+        pending_ble_cmd = 22;
+      } else if (c == 'Y') {
+        pending_ble_cmd = 23;
+      } else if (c == 'P') {
+        pending_ble_cmd = 24;
+      } else if (c == 'C') {
+        pending_ble_cmd = 25;
+      } else if (c == 'W') {
+        pending_ble_cmd = 26;
+      } else if (c == 'O') {
+        pending_ble_cmd = 27;
       }
     }
     k_sleep(K_MSEC(10));
