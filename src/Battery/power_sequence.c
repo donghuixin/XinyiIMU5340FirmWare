@@ -82,4 +82,6 @@ static int power_sequence_init(void)
 	return 0;
 }
 
-SYS_INIT(power_sequence_init, POST_KERNEL, 50);
+/* Priority 51 — must run AFTER I2C drivers (CONFIG_I2C_INIT_PRIORITY = 50)
+ * but BEFORE sensor drivers (CONFIG_SENSOR_INIT_PRIORITY = 90) */
+SYS_INIT(power_sequence_init, POST_KERNEL, 51);

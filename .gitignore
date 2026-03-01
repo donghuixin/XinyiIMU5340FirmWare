@@ -14,3 +14,18 @@
 # Flash Backup files
 /tools/flash/settings_backup.hex
 /tools/flash/uicr_backup.hex
+# Large binaries & toolchains
+/downloads/
+/toolchains/
+
+# Agent / AI / cache
+/.agent/
+/.cache/
+/tmp/
+/tmp_skills/
+
+# Superpowers submodule
+/superpowers/
+
+# Logs
+*.log

@@ -63,7 +63,10 @@ void IMU::sensor_timer_handler(struct k_timer *dummy) {
 bool IMU::init(struct k_msgq *queue) {
   if (!_active) {
     _active = true;
-    k_usleep(50000); // 50ms delay to let the BMI160 power up
+    /* Wait for load-switch rails to stabilise; power_sequence runs at
+     * POST_KERNEL:51 and already waits ~70 ms, but application init may
+     * call this shortly after boot, so add a generous margin. */
+    k_msleep(100);
   }
 
   if (!imu.begin()) { // hardware I2C mode, can pass in address & alt Wire

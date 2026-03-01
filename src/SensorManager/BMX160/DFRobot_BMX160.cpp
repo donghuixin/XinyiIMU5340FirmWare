@@ -281,6 +281,12 @@ bool DFRobot_BMI160::scan() {
   int ret_68 = -1, ret_69 = -1;
   uint8_t found_addr = 0;
 
+  if (!device_is_ready(_i2c->master)) {
+    LOG_ERR("I2C bus not ready for BMI160 scan");
+    _i2c->release();
+    return false;
+  }
+
   // Try probing up to 10 times for wake up
   for (int i = 0; i < 10; i++) {
     ret_68 = i2c_reg_read_byte(_i2c->master, 0x68, 0x00, &chip_id);
@@ -294,6 +300,7 @@ bool DFRobot_BMI160::scan() {
       found_addr = 0x69;
       break;
     }
+    LOG_DBG("IMU scan attempt %d failed (ret_68=%d, ret_69=%d)", i, ret_68, ret_69);
     k_usleep(10000); // 10ms wait
   }
 

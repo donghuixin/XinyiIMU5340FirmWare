@@ -145,7 +145,7 @@
 	/* maxm86161 and mlx90632 not present on Meow Sense Tag, but keep nodes for DT_NODELABEL references */
 
 	bmx160: bmi160@68 {
-		compatible = "bosch,bmi160";
+		compatible = "i2c-device";
         reg = <0x68>;
     };
 

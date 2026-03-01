@@ -1,170 +1,188 @@
-# OpenEarable 2 - Firmware
+# XinyiIMU — nRF5340 Multi-Sensor IMU Firmware
 
-[OpenEarable](openearable.com) is the world's first fully open-source AI platform for ear-based sensing applications with true wireless audio. Packed with an unprecedented array of high-precision sensors, OpenEarable redefines what's possible in wearable tech. Designed for both development and research applications, OpenEarable is modular, reconfigurable, and built for the future.
-<br/><br/><br/>
-![image](https://github.com/user-attachments/assets/8cb55571-c6bc-4f51-b2ae-628f7be3661c)
+XinyiIMU is a dual-core nRF5340-based firmware for a compact, multi-sensor wearable IMU platform. It provides 9-axis inertial sensing (BMI160/BMX160), environmental sensing, optical heart-rate (PPG), temperature monitoring, LE Audio, BLE data streaming, and SD card logging — all running on Zephyr RTOS (nRF Connect SDK v3.0.1).
+
+## Features
+
+- **Dual-core nRF5340**: Application core (Cortex-M33 @ 128 MHz) + Network core (SoftDevice Controller / LE Audio)
+- **9-axis IMU**: BMI160/BMX160 accelerometer + gyroscope + magnetometer via I2C, configurable ODR (25–800 Hz)
+- **Environmental sensors**: BMP388 barometer, MLX90632 IR thermometer
+- **Optical PPG**: MAXM86161 pulse oximetry / heart-rate sensor
+- **Bone-conduction mic**: BMA580 high-frequency accelerometer for bone-conduction audio
+- **Power management**: BQ25120A PMIC with load-switch sequencing, BQ27220 fuel gauge
+- **Audio codec**: ADAU1860 + LC3 encode/decode for LE Audio unicast
+- **BLE streaming**: Real-time sensor data streaming over GATT notifications
+- **SD card logging**: FAT/exFAT microSD recording in binary `.oe` format
+- **FOTA support**: MCUBoot + mcumgr SMP for over-the-air firmware updates
+- **LED status**: KTD2026 RGB LED for battery/connection/recording states
+
+## Hardware
+
+| Bus  | Pins (SCL / SDA)   | Sensors                                                         |
+|------|--------------------|-----------------------------------------------------------------|
+| I2C1 | P0.24 / P0.21     | BQ25120A (PMIC), BQ27220 (Fuel Gauge), ADAU1860, KTD2026 (LED) |
+| I2C2 | P1.00 / P1.15     | **BMI160 (IMU)**, MAXM86161 (PPG), MLX90632 (Temp)             |
+| I2C3 | P1.02 / P1.03     | BMP388 (Barometer), BMA580 (Bone Conduction)                   |
 
 ## Table of Contents
 
 1. [Setup](#setup)
+2. [Build & Flash](#build--flash)
+3. [Battery States](#battery-states)
+4. [Connection States](#connection-states)
+5. [SD Card](#sd-card)
+6. [Changelog](#changelog)
+7. [Acknowledgments](#acknowledgments)
 
-2. [Battery States](#battery-states)
-
-3. [Connection States](#connection-states)  
-
-4. [SD Card](#sd-card)
-   
-5. [Citing](#citing)
-
+---
 
 ## Setup
-1. **Install Visual Studio Code (VS Code)**  
-   - Download and install from [https://code.visualstudio.com](https://code.visualstudio.com).
 
-2. **Install the J‑Link Software and Documentation Package**
-   - Download and install from [https://www.segger.com/downloads/jlink/](https://www.segger.com/downloads/jlink/).
-     
-3. **Install nRF-Util**  
-   - Download from [nRF Util – Nordic Semiconductor](https://www.nordicsemi.com/Products/Development-tools/nRF-Util).
-   - Add `nrfutil` to your system's `PATH` environment variable.
+### Prerequisites
 
-4. **Install the nRF Connect for VS Code Extension**  
-   - Open VS Code.
-   - Go to the Extensions tab and install **"nRF Connect for VS Code"**.
-   - Install all required dependencies when prompted.
+1. **Visual Studio Code** — [https://code.visualstudio.com](https://code.visualstudio.com)
+2. **J-Link Software** — [https://www.segger.com/downloads/jlink/](https://www.segger.com/downloads/jlink/)
+3. **nRF-Util** — [Nordic nRF Util](https://www.nordicsemi.com/Products/Development-tools/nRF-Util) (add to `PATH`)
+4. **nRF Connect for VS Code** extension — install from the VS Code Extensions tab, including all prompted dependencies
 
-5. **Install the Toolchain via nRF Connect**  
-   - Open the **nRF Connect** tab in VS Code.
-   - Click **"Install Toolchain"**.
-   - Select and install **version 3.0.1**.
+### SDK & Toolchain
 
-6. **Install the nRF Connect SDK**  
-   - In the **nRF Connect** tab, select **"Manage SDK"**. 
-   - Install **SDK version 3.0.1**.
+1. Open the **nRF Connect** tab in VS Code.
+2. Install **Toolchain v3.0.1** and **SDK v3.0.1**.
 
-7. **Open the Firmware Folder in VS Code**  
-   - Use `File > Open Folder` or drag-and-drop the firmware directory into VS Code.
-   - OR in the **APPLICATIONS** section of the nRF Connect tab:
-     - Select `Open Exisiting Application`.
-     - Select the `open-earable-2` directory.
+### Open & Configure Project
 
-8. **Configure the Application Build**
-   - If not already open, navigate to the nrfConnect extension tab in VSCode.
-   - In the **APPLICATIONS** section of the nRF Connect extension tab:  
-     - Select the `open-earable-2` application.  
-     - Click **"+ Add build configuration"** to set up a new build.
-     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `open-earable-2/nrf5340/cpuapp` as board target.
-     - To build **with FOTA** (firmware over-the-air update functionality):
-       - Leave the `Base configuration files (Kconfig fragments)` dropdown empty.
-       - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`.
-       - as `Build directory` name set `build_fota`.
-     -  To build **without FOTA**:
-        - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`.
-        - Do not set any of the FOTA flags described above.
-    
-9. **J-Link Setup**
-     - Wire your J-Link to the debugging breakout PCB as shown below.
-     ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
-     - If you do not own a J-Link yet, here are a few options (do **NOT** use J-Link clones, they will not work and are illegal!):
-          - [J-Link EDU Mini](https://mou.sr/3LrwiVe) (available to educational institutions, private persons, and students) with [JTAG adapter](https://www.adafruit.com/product/2094) and [cable](https://www.adafruit.com/product/1675).
-          - Full-scale J-Link for commercial use (e.g., [J-Link BASE Compact](https://mou.sr/4oQkAls)).
-          - ⚠️ The wiring show in the figure above is for the full-scale J-Link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case! _(to be confirmed, picture coming soon)_.
+1. `File > Open Folder` → select the `XinyiIMU` firmware directory.
+2. In the **APPLICATIONS** section of the nRF Connect tab, click **"+ Add build configuration"**.
+3. Set:
+   - **Board target**: `openearable_v2/nrf5340/cpuapp`
+   - **SDK / Toolchain**: 3.0.1
+4. For **FOTA** builds: add `-DFILE_SUFFIX="fota"` as Extra CMake argument, build directory `build_fota`.
+5. For **standard** builds: select `prj.conf` as the Kconfig fragment.
 
+---
 
-10. **Build and Flash**
-   - Click on `Generate and Build` and wait for the application to build (this will take some time)
-   - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
-   - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
-     ```bash
-     # --right for the right ear device, or no flag to retain left/right bonding
-     # --hw version is optional and can only be used with --left or --right
-     ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.0.1    
-   
-     ```
-   - or without FOTA
-     ```bash
-     # --right for the right ear device, or no flag to retain left/right bonding
-      # --hw version is optional and can only be used with --left or --right
-     ./tools/flash/flash.sh --snr 123456789 --left --hw 2.0.1      
-     ```
-   - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
+## Build & Flash
 
-11. **Recover Board**
-- If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your J-Link debugger.
-- Ensure the device is powered via USB or that the battery is sufficiently charged before running the recovery process. Otherwise, the MCU may not power up correctly and the recovery will fail.
-     ```bash
-     ./tools/flash/recover.sh --snr 123456789
-     ```
-- After successful recovery, you can attempt to flash the firmware again (you will have to restore left/right bonding and hardware version).
-   
-12. **Enable Debug Output**
-- Open the **J-Link Configuration** program on your computer.  
-   - On macOS: Press `CMD` + `Space` and search for `J-Link Config`.  
-   - On Windows: Search for the program from the taskbar.  
-- Ensure your J-Link is connected to your computer.  
-- In the **Connected via USB** table, locate your J-Link device. Double-click it or right-click and select **Configure**.  
-- Find the **Virtual COM-Port** option and select **Enable**. Click **OK** to apply the setting.  
-- Open **Visual Studio Code**.  
-- In the left sidebar, open the **Extensions** menu.  
-- Search for and install the [**Serial Monitor**](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-serial-monitor) extension.  
-- In the top menu bar, click **Terminal → New Terminal**.  
-- A terminal window will appear at the bottom of VS Code. Open the **Serial Monitor** tab.  
-- In the **Port** dropdown menu, select your J-Link’s COM port.  
-- Set the **Baud rate** to **115200**.  
-- Click **Start Monitoring**.  
-- Ensure your earable is connected to the debugger probe. You should now see debug output appearing when you interact with the device (e.g., press button).
+### VS Code (GUI)
 
+Click **Generate and Build** in the nRF Connect extension panel.
 
+### CLI
+
+```bash
+# Pristine build (standard)
+west build -p always -b openearable_v2/nrf5340/cpuapp -d build -- -DBOARD_ROOT=.
+
+# FOTA build
+west build -p always -b openearable_v2/nrf5340/cpuapp -d build_fota -- -DBOARD_ROOT=. -DFILE_SUFFIX="fota"
+```
+
+### Flash
+
+```bash
+# Standard flash (may need --recover if readback protection is enabled)
+west flash -d build
+
+# With recovery (erases full flash + clears access port protection)
+west flash -d build --recover
+```
+
+### Flash Scripts (with J-Link serial number)
+
+```bash
+# Linux / macOS
+./tools/flash/flash_fota.sh --snr <JLINK_SERIAL> --left --hw 2.0.1
+
+# Windows (PowerShell, run as Administrator)
+.\tools\flash\flash_fota.ps1 -snr <JLINK_SERIAL> -left -hw 2.0.1
+```
+
+### Recovery
+
+If the application or network core becomes unresponsive:
+
+```bash
+./tools/flash/recover.sh --snr <JLINK_SERIAL>
+```
+
+### Debug Output
+
+1. Enable **Virtual COM-Port** in J-Link Configuration program.
+2. Install the [Serial Monitor](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-serial-monitor) VS Code extension.
+3. Open Serial Monitor → select J-Link COM port → baud rate **115200** → Start Monitoring.
+
+---
 
 ## Battery States
-Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
 
-### Charging States
+Battery LED states override connection LED states. All LED states can be manually overwritten via BLE service.
 
-| LED State         | Description                                                                 |
-|------------------|-----------------------------------------------------------------------------|
-| 🟥 Red - Solid      | Battery fault or deep discharge*, charging current = 0                       |
-| 🔴 Red - Pulsing    | Pre-charge phase or system-down voltage not yet cleared                     |
-| 🟧 Orange - Solid   | Power connected, but charging current is not verified or not at desired level |
-| 🟠 Orange - Pulsing | At least 80% of the target charging current is reached                      |
-| 🟢 Green - Pulsing  | Trickle charge; final voltage (constant voltage) reached. Can be disabled via config |
-| 🟩 Green - Solid    | Fully charged                                                               |
+### Charging
 
-*If your OpenEarable goes into deep discharge (solid red) after pre-charge (red pulse), you can unplug the OpenEarable and plug it in again. This should recover the device.
+| LED State              | Description                                         |
+|------------------------|-----------------------------------------------------|
+| 🟥 Red – Solid         | Battery fault or deep discharge, charging current = 0 |
+| 🔴 Red – Pulsing       | Pre-charge phase                                    |
+| 🟧 Orange – Solid      | Power connected, charging current not at target     |
+| 🟠 Orange – Pulsing    | ≥ 80% of target charging current reached            |
+| 🟢 Green – Pulsing     | Trickle/CV phase, final voltage reached             |
+| 🟩 Green – Solid       | Fully charged                                       |
 
+> If the device enters deep discharge (solid red), unplug and replug USB to recover.
 
-### Discharging States
+### Discharging
 
-| LED State           | Description                                                              |
-|--------------------|--------------------------------------------------------------------------|
-| 🟠 Orange - Blinking | Battery low (7% remaining or EDV2 reached). Disabled by default, enable via config |
-| 🔴 Red - Blinking      | Battery critical (3% remaining or EDV1 reached)                          |
+| LED State              | Description                          |
+|------------------------|--------------------------------------|
+| 🟠 Orange – Blinking   | Battery low (≈ 7%)                   |
+| 🔴 Red – Blinking      | Battery critical (≈ 3%)              |
 
+---
 
 ## Connection States
-Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
 
-| LED State                           | Description                                                                 |
-|-------------------------------------|-----------------------------------------------------------------------------|
-| 🔵 Blue – Blinking Very Fast        | Configured as **left device**, searching for **right device**               |
-| 🔴 Red – Blinking Very Fast         | Configured as **right device**, searching for **left device**               |
-| 🔵 Blue – Blinking Fast             | Paired with left/right, **ready for device bonding**                        |
-| 🔵 Blue – Blinking Slow             | Bonded, **waiting for connection**                                          |
-| 🟢 Green – Blinking Slow            | **Connected**                                                               |
-| 🟣 Purple – Blinking Slow           | **SD card recording**                                                       |
+| LED State                       | Description                              |
+|---------------------------------|------------------------------------------|
+| 🔵 Blue – Blinking Very Fast    | Searching for paired device              |
+| 🔵 Blue – Blinking Fast         | Ready for bonding                        |
+| 🔵 Blue – Blinking Slow         | Bonded, waiting for connection           |
+| 🟢 Green – Blinking Slow        | Connected                                |
+| 🟣 Purple – Blinking Slow       | SD card recording active                 |
+
+---
 
 ## SD Card
-Because ZephyrOS does not allow remounting of SD cards, it is **very important that the device is turned of before inserting or removing the SD card**.
-As long as a recording to the SD card is active, the LED light will blink purple.
 
+ZephyrOS does not support SD card hot-swap — **power off the device before inserting or removing the microSD card**.
 
-### File Parsing
-Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
+Recorded binary `*.oe` files can be parsed with <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
 
+---
 
+## Changelog
 
+### v2.2.2 — 2026-03-01
+- **Fix: I2C init priority race** — `power_sequence.c` SYS_INIT moved from priority 50 → 51, ensuring I2C drivers initialize before PMIC load-switch programming
+- **Fix: Zephyr BMI160 driver conflict** — Disabled in-tree `CONFIG_BMI160` to prevent double-init contention with custom DFRobot_BMI160 driver
+- **Fix: DTS compatible change** — BMI160 node changed from `"bosch,bmi160"` to `"i2c-device"` to prevent auto-selection of Zephyr driver
+- **Improved: IMU power-up margin** — Extended BMI160 power-up delay from 50 ms to 100 ms for reliable load-switch rail stabilization
+- **Improved: BMI160 scan diagnostics** — Added I2C bus readiness check and per-attempt debug logging in `scan()`
 
+### v2.2.1 — 2025-12-01
+- Major firmware refactoring & build system fix
+- Auto-discovery of `BOARD_ROOT` via `sysbuild/CMakeLists.txt` and `zephyr/module.yml`
+- New `power_sequence.c` — early-boot BQ25120A PMIC load-switch initialization
+- Battery management: BQ25120A driver, BQ27220 fuel gauge integration, PowerManager
+- LED control via KTD2026 driver with battery/connection state visualization
+- BLE sensor streaming and SD card logging modules
+- Zephyr zbus message architecture for cross-module communication
 
+### v1.0.0 — Initial
+- Initial commit — base firmware ported to custom nRF5340 board
 
+---
 
+## Acknowledgments
 
+This project is built upon the [OpenEarable](https://open-earable.teco.edu/) open-source platform developed by TECO (Karlsruhe Institute of Technology). The hardware design, Zephyr board definitions, audio pipeline, and BLE architecture originate from the OpenEarable 2 project. We gratefully acknowledge their pioneering work in open-source ear-based sensing.
