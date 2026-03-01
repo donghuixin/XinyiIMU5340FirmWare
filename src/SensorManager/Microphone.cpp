@@ -5,13 +5,13 @@
 
 #include "SensorManager.h"
 
+#include <zephyr/device.h>
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
-#include <zephyr/device.h>
 
 #include "ADAU1860.h"
 
-//#include <data_fifo.h>
+// #include <data_fifo.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,57 +26,64 @@ extern void empty_fifo();
 #endif
 
 #include <zephyr/logging/log.h>
-//LOG_MODULE_DECLARE(BMX160);
+// LOG_MODULE_DECLARE(BMX160);
 LOG_MODULE_REGISTER(microphone, CONFIG_LOG_DEFAULT_LEVEL);
 
 extern struct data_fifo fifo_rx;
 
 Microphone Microphone::sensor;
 
-const SampleRateSetting<1> Microphone::sample_rates = {
-    { 0 },
+const SampleRateSetting<1> Microphone::sample_rates = {{0},
 
-	{ 48000 },
+                                                       {48000},
 
-	{ 48000.0 }
-};
+                                                       {48000.0}};
 
-bool Microphone::init(struct k_msgq * queue) {
+bool Microphone::init(struct k_msgq *queue) {
 
-	_active = true;
+  _active = true;
 
-	sensor_queue = queue;
+  sensor_queue = queue;
 
-	set_sensor_queue(queue);
+#ifdef CONFIG_NRF5340_AUDIO
+  set_sensor_queue(queue);
 
-	init_fifo();
+  init_fifo();
+#endif
 
-	return true;
+  return true;
 }
 
 void Microphone::start(int sample_rate_idx) {
-	ARG_UNUSED(sample_rate_idx);
+  ARG_UNUSED(sample_rate_idx);
 
-	int ret;
+  int ret;
 
-	if (!_active) return;
+  if (!_active)
+    return;
 
-	record_to_sd(true);
+#ifdef CONFIG_NRF5340_AUDIO
+  record_to_sd(true);
 
-	audio_datapath_aquire(&fifo_rx);
+  audio_datapath_aquire(&fifo_rx);
+#endif
 
-	_running = true;
+  _running = true;
 }
 
 void Microphone::stop() {
-    if (!_active) return;
-    _active = false;
+  if (!_active)
+    return;
+  _active = false;
 
-	if (!_running) return;
+  if (!_running)
+    return;
 
-	record_to_sd(false);
+#ifdef CONFIG_NRF5340_AUDIO
+  record_to_sd(false);
 
-	audio_datapath_release();
+  audio_datapath_release();
+#endif
 
-	_running = false;
+  _running = false;
 }

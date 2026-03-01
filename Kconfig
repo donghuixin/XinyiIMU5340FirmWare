@@ -55,6 +55,8 @@ rsource "unicast_server/Kconfig.defaults"
 # rsource "unicast_client/Kconfig.defaults"
 # endif # TRANSPORT_CIS && AUDIO_DEV = 2
 
+endif # NRF5340_AUDIO
+
 rsource "Kconfig.defaults"
 rsource "src/audio/Kconfig"
 rsource "src/bluetooth/Kconfig"
@@ -79,6 +81,5 @@ config PRINT_STACK_USAGE_MS
 endmenu # Log levels
 
 #----------------------------------------------------------------------------#
-endif # NRF5340_AUDIO
 
 source "Kconfig.zephyr"

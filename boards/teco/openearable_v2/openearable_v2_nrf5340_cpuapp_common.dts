@@ -16,27 +16,23 @@
 		 zephyr,bt-hci = &bt_hci_ipc0;
 		 watchdog0 = &wdt0;
 	 };
+
+	 aliases {
+		 ldo-ctrl = &ldo_ctrl;
+	 };
  
  
 	 sd_state: sd_state {
 		 compatible = "power-switch";
 		 gpios = <&gpio0 15 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
 	 };
- 
-	 load_switch: load_switch {
-		 compatible = "load-switch";
-		 enable-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
-		 power-delay-us = <300>; // 250us per datasheet
-		 status = "okay";
-		 default-on;
-	 };
- 
-	 load_switch_sd: load_switch_sd {
-		 compatible = "load-switch";
-		 enable-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
-		 power-delay-us = <300>; // 250us per datasheet
-		 status = "okay";
-	 };
+
+	ldo_ctrl: ldo_ctrl {
+		compatible = "regulator-fixed";
+		regulator-name = "pmic_lsctrl";
+		enable-gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
  
 	 gpio_fwd: nrf-gpio-forwarder {
 		 compatible = "nordic,nrf-gpio-forwarder";
@@ -93,7 +89,7 @@
 	 clock-source = "ACLK";
  };
  
- &i2c1 {
+&i2c1 {
 	 compatible = "nordic,nrf-twim";
 	 status = "okay";
 	 pinctrl-0 = <&i2c1_default>;
@@ -102,6 +98,11 @@
 	 clock-frequency = <I2C_BITRATE_FAST>;  // 400 kHz
 	 zephyr,concat-buf-size = <512>;
      zephyr,flash-buf-max-size = <512>;
+
+	 ktd2026: ktd2026@30 {
+		 compatible = "i2c-device";
+		 reg = <0x30>;
+	 };
  
 	 bq27220: bq27220@55 {
 		 compatible = "ti,bq27220";
@@ -143,8 +144,8 @@
 
 	/* maxm86161 and mlx90632 not present on Meow Sense Tag, but keep nodes for DT_NODELABEL references */
 
-	bmx160: bmx160@68 {
-        compatible = "i2c-device";
+	bmx160: bmi160@68 {
+		compatible = "bosch,bmi160";
         reg = <0x68>;
     };
 

@@ -14,20 +14,21 @@ static const RGBColor LED_MAGENTA = {16, 0, 16};
 
 class StateIndicator {
 public:
-    void init(struct earable_state state);
+  StateIndicator();
+  void init(struct earable_state state);
 
-    void set_state(struct earable_state state);
+  void set_state(struct earable_state state);
 
-    void set_sd_state(enum sd_state state);
+  void set_sd_state(enum sd_state state);
 
-    void set_charging_state(enum charging_state state);
-    void set_pairing_state(enum pairing_state state);
-    void set_indication_mode(enum led_mode state);
-    void set_custom_color(const RGBColor &color);
+  void set_charging_state(enum charging_state state);
+  void set_pairing_state(enum pairing_state state);
+  void set_indication_mode(enum led_mode state);
+  void set_custom_color(const RGBColor &color);
 
 private:
-    earable_state _state;
-    RGBColor color;
+  earable_state _state;
+  RGBColor color;
 };
 
 extern StateIndicator state_indicator;

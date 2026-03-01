@@ -161,20 +161,7 @@ As long as a recording to the SD card is active, the LED light will blink purple
 ### File Parsing
 Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
 
-## Citing
-If you are using OpenEarable, please cite is as follows:
-```
-@article{roddiger2025openearable,
-     title = {OpenEarable 2.0: Open-Source Earphone Platform for Physiological Ear Sensing},
-     author = {Röddiger, Tobias and Küttner, Michael and Lepold, Philipp and King, Tobias and Moschina, Dennis and Bagge, Oliver and Paradiso, Joseph A. and Clarke, Christopher and Beigl, Michael},
-     year = 2025,
-     journal = {Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies},
-     volume = {9},
-     number = {1},
-     pages = {1--33},
-     publisher={ACM New York, NY, USA}
-}
-```
+
 
 
 

@@ -6,6 +6,12 @@
 
 cmake_minimum_required(VERSION 3.20.0)
 
+# Ensure the custom board root is visible to Zephyr (avoids having to pass
+# -DBOARD_ROOT=... on every command line invocation).
+if(NOT BOARD_ROOT)
+    set(BOARD_ROOT ${CMAKE_CURRENT_SOURCE_DIR} CACHE PATH "Custom board root")
+endif()
+
 # Flag which defines whether application is compiled as gateway/dongle or headset
 add_compile_definitions(HEADSET=1)
 add_compile_definitions(GATEWAY=2)
@@ -37,9 +43,8 @@ if (CONFIG_BT_BAP_BROADCAST_SINK)
 	add_subdirectory(broadcast_sink)
 endif()
 
-if (CONFIG_BT_BAP_UNICAST_SERVER)
-	add_subdirectory(unicast_server)
-endif()
+# Always compile the main application logic, regardless of audio settings
+add_subdirectory(unicast_server)
 
 
 # Include application events and configuration headers

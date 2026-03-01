@@ -3,30 +3,40 @@
 #include "openearable_common.h"
 #include "zbus_common.h"
 
-#include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
+#include <zephyr/zbus/zbus.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(button, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
 K_MSGQ_DEFINE(button_queue, sizeof(struct button_msg), 1, 4);
 
-ZBUS_CHAN_DEFINE(button_chan, struct button_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
-		 ZBUS_MSG_INIT(0));
+ZBUS_CHAN_DEFINE(button_chan, struct button_msg, NULL, NULL,
+                 ZBUS_OBSERVERS_EMPTY, ZBUS_MSG_INIT(0));
 
-void button_pub_task() {
-    int ret;
-	struct button_msg msg;
+static K_THREAD_STACK_DEFINE(button_publish_stack,
+                             CONFIG_BUTTON_PUBLISH_STACK_SIZE);
+static struct k_thread button_publish_thread_data;
 
-	while (1) {
-		k_msgq_get(&button_queue, &msg, K_FOREVER);
+void button_pub_task(void *p1, void *p2, void *p3) {
+  int ret;
+  struct button_msg msg;
 
-		ret = zbus_chan_pub(&button_chan, &msg, K_FOREVER); //K_NO_WAIT
-		if (ret) {
-			LOG_ERR("Failed to publish button msg, ret: %d", ret);
-		}
-	}
+
+  while (1) {
+    k_msgq_get(&button_queue, &msg, K_FOREVER);
+
+    ret = zbus_chan_pub(&button_chan, &msg, K_FOREVER); // K_NO_WAIT
+    if (ret) {
+      LOG_ERR("Failed to publish button msg, ret: %d", ret);
+    }
+  }
 }
 
-K_THREAD_DEFINE(button_publish, CONFIG_BUTTON_PUBLISH_STACK_SIZE, button_pub_task, NULL, NULL,
-		NULL, K_PRIO_PREEMPT(CONFIG_BUTTON_PUBLISH_THREAD_PRIO), 0, 0);
+void button_manager_init(void) {
+  k_thread_create(
+      &button_publish_thread_data, button_publish_stack,
+      K_THREAD_STACK_SIZEOF(button_publish_stack), button_pub_task, NULL, NULL,
+      NULL, K_PRIO_PREEMPT(CONFIG_BUTTON_PUBLISH_THREAD_PRIO), 0, K_NO_WAIT);
+  k_thread_name_set(&button_publish_thread_data, "button_publish");
+}

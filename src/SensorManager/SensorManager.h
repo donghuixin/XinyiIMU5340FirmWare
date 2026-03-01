@@ -6,6 +6,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/zbus/zbus.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,6 +29,8 @@ void start_sensor_manager();
 void stop_sensor_manager();
 
 void config_sensor(struct sensor_config * config);
+
+ZBUS_CHAN_DECLARE(sensor_chan);
 
 #ifdef __cplusplus
 }
