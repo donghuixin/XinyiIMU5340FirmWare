@@ -52,13 +52,13 @@ void KTD2026::begin() {
 }
 
 void KTD2026::reset() {
-  uint8_t val = 0x7;
+  uint8_t val = 0x08; // Normal Mode (bit 4:3 = 01)
   writeReg(registers::CTRL, &val, sizeof(val));
   k_usleep(200);
 }
 
 void KTD2026::power_off() {
-  uint8_t val = 0x8;
+  uint8_t val = 0x00; // Sleep/Off Mode (bit 4:3 = 00)
   writeReg(registers::CTRL, &val, sizeof(val));
   _active = false;
 }

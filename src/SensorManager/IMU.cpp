@@ -34,6 +34,14 @@ void IMU::update_sensor(struct k_work *work) {
 
   imu.getAllData(&magno_data, &gyro_data, &accel_data);
 
+  // 每秒（约100次采样）心跳打印一次
+  static int print_divider = 0;
+  if (++print_divider >= 100) {
+    print_divider = 0;
+    LOG_INF("IMU 1Hz Heartbeat: Accel X: %f, Y: %f, Z: %f",
+            (double)accel_data.x, (double)accel_data.y, (double)accel_data.z);
+  }
+
   size_t size = 3 * sizeof(float);
 
   msg_imu.sd = sensor._sd_logging;

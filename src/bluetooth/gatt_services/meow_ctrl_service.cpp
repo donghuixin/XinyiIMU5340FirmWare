@@ -143,6 +143,10 @@ static volatile int imu_sample_idx;
 #define SERIAL_IMU_PRINT_DIVIDER 4 /* print every 4th batch – 5 Hz */
 static int serial_batch_counter;
 
+/* Command flags for deferring BLE commands to serial_thread to avoid deadlock
+ */
+static volatile int pending_ble_cmd = 0; // 0=none, 1=start, 2=stop, 3=bat
+
 /* Conversion constants (approximate based on standard settings) */
 /* Accel: 2G range -> 16384 LSB/g. 1g = 9.81 m/s^2. Factor = 16384 / 9.81 =
  * 1670.1 */
@@ -342,6 +346,10 @@ ZBUS_CHAN_ADD_OBS(sensor_chan, meow_ctrl_lis, 2);
 static ssize_t write_cmd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                          const void *buf, uint16_t len, uint16_t offset,
                          uint8_t flags) {
+  printk("RAW BLE WRITE TRIGGERED! Data: %c\n",
+         len > 0 ? ((const char *)buf)[0] : ' ');
+  LOG_INF("BLE Write received! Length: %d", len); // 看看有没有收到包
+
   const char *data = (const char *)buf;
   if (len == 0)
     return len;
@@ -352,16 +360,14 @@ static ssize_t write_cmd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 
   switch (cmd) {
   case 's':
-    imu_start();
+    LOG_INF("Command 's' matched! Deferring IMU thread start...");
+    pending_ble_cmd = 1;
     break;
   case 'p':
-    imu_stop();
+    pending_ble_cmd = 2;
     break;
   case 'b':
-    fill_bat_pkt();
-    if (conn) {
-      bt_gatt_notify(conn, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
-    }
+    pending_ble_cmd = 3;
     break;
   default:
     uart_printf("[CMD] Unknown command\r\n");
@@ -397,8 +403,20 @@ static void serial_thread(void) {
   /* Scan I2C devices */
   meow_i2c_scan();
 
-  /* Main loop: read chars from UART */
+  /* Main loop: read chars from UART and run pending BLE commands */
   while (1) {
+    if (pending_ble_cmd == 1) {
+      pending_ble_cmd = 0;
+      imu_start();
+    } else if (pending_ble_cmd == 2) {
+      pending_ble_cmd = 0;
+      imu_stop();
+    } else if (pending_ble_cmd == 3) {
+      pending_ble_cmd = 0;
+      fill_bat_pkt();
+      bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
+    }
+
     unsigned char c;
     if (uart_poll_in(uart_dev, &c) == 0) {
       if (c == 's') {

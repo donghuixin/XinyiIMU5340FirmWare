@@ -6,11 +6,12 @@
 
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
 #include <zephyr/usb/usb_device.h>
-#include <zephyr/drivers/i2c.h>
+
 
 // #include "../src/modules/sd_card.h"
 
@@ -82,6 +83,19 @@ int main(void) {
 
   /* FORCE POWER RAILS ON EARLY */
   force_load_switches_on();
+
+  // 动作 2：手动给 PMIC 发指令提压到 3.3V, 等硬件苏醒
+  const struct device *i2c1_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+  if (device_is_ready(i2c1_dev)) {
+    uint8_t reg_val = 0xE4; // 3.3V LDO Output
+    int r = i2c_reg_write_byte(i2c1_dev, 0x6A, 0x07, reg_val);
+    if (r == 0) {
+      printk("MANUAL BQ25120A LDO TO 3.3V SUCCESS!\n");
+      k_msleep(50); // Waiting for KTD2026 hardware to wake up
+    } else {
+      printk("MANUAL BQ25120A LDO WRITE FAILED: %d\n", r);
+    }
+  }
 
   LOG_INF("nRF5340 APP core started - scanning I2C buses");
 
