@@ -146,13 +146,14 @@ void StateIndicator::set_state(struct earable_state state) {
 
   switch (_state.charging_state) {
   case POWER_CONNECTED:
-    led_controller.setColor(LED_ORANGE);
+    led_controller.setColor(LED_RED);
     break;
   case CHARGING:
-    led_controller.pulse(LED_ORANGE, 1000, 1000, 512, 2000);
+    led_controller.blink(LED_RED, 500,
+                         1000); // 红灯闪烁 (500ms on, 1000ms period)
     break;
   case PRECHARGING:
-    led_controller.pulse(LED_RED, 1000, 1000, 512, 2000);
+    led_controller.blink(LED_RED, 100, 500); // 快速红闪
     break;
   case TRICKLE_CHARGING:
     led_controller.pulse(LED_GREEN, 1000, 1000, 512, 2000);
