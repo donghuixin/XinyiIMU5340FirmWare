@@ -47,7 +47,199 @@
 #include "../../SensorManager/SensorManager.h" // For config_sensor and sensor_chan
 #include "openearable_common.h"                // For struct sensor_msg
 
+extern "C" int bt_mgmt_adv_start(uint8_t flags, const struct bt_data *ad,
+                                 size_t ad_len, const struct bt_data *sd,
+                                 size_t sd_len, bool enable_unrecog);
+
+static int imu_start(void);
+static int imu_stop(void);
+
 LOG_MODULE_REGISTER(meow_ctrl, CONFIG_MAIN_LOG_LEVEL);
+
+/* ================================================================== */
+/* 1. 系统状态机定义                                                  */
+/* ================================================================== */
+typedef enum {
+  SYS_STATE_PAIRING,   // 蓝灯闪烁 (1秒周期)
+  SYS_STATE_CONNECTED, // 蓝牙已连接 (灭灯)
+  SYS_STATE_CHARGING,  // 充电中 (红灯呼吸，2秒周期)
+  SYS_STATE_FULL,      // 充满电 (绿灯常亮)
+  SYS_STATE_SLEEP      // 深度休眠 (灭灯，等待敲击唤醒)
+} meow_sys_state_t;
+
+volatile meow_sys_state_t current_state = SYS_STATE_PAIRING;
+
+/* ================================================================== */
+/* 2. KTD2026 状态机 LED 驱动                                         */
+/* ================================================================== */
+void update_system_led() {
+  const struct device *i2c1_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+  if (!device_is_ready(i2c1_dev))
+    return;
+
+  // 先全面复位 KTD2026
+  i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x00); // Reset/Sleep
+  i2c_reg_write_byte(i2c1_dev, 0x30, 0x04, 0x00); // 关红
+  i2c_reg_write_byte(i2c1_dev, 0x30, 0x05, 0x00); // 关绿
+  i2c_reg_write_byte(i2c1_dev, 0x30, 0x06, 0x00); // 关蓝
+
+  switch (current_state) {
+  case SYS_STATE_CHARGING:
+    // 红灯呼吸 (2秒周期) - 利用 KTD2026 内部 Timer/Fade
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x01, 0x66); // 设置 Timer Flash Period
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x06,
+                       0x55); // CH1 红灯基础亮度 (Reg 0x06)
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x0A); // 模式：开启 PWM/Timer
+    break;
+
+  case SYS_STATE_FULL:
+    // 绿灯常亮
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x07, 0x55); // CH2 绿灯亮度 (Reg 0x07)
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x08); // 模式：Normal
+    break;
+
+  case SYS_STATE_PAIRING:
+    // 蓝灯闪烁 (1秒周期)
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x01, 0x31); // 1Hz 闪烁速率
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x08, 0x55); // CH3 蓝灯亮度 (Reg 0x08)
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x0A); // 模式：开启 PWM/Timer
+    break;
+
+  case SYS_STATE_CONNECTED:
+  case SYS_STATE_SLEEP:
+    // 灭灯 (保持 0x00 即可)
+    i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x00);
+    break;
+  }
+}
+
+/* ================================================================== */
+/* 3. 30秒无连接休眠倒计时                                            */
+/* ================================================================== */
+static struct k_work_delayable auto_sleep_work;
+
+static void auto_sleep_handler(struct k_work *work) {
+  if (current_state == SYS_STATE_PAIRING) {
+    printk("[SYS] 30s timeout. Entering Micro-Sleep...\n");
+    current_state = SYS_STATE_SLEEP;
+    update_system_led();
+
+    // 停止蓝牙广播以省电
+    bt_le_adv_stop();
+
+    // 停止 IMU 高频采样，进入低功耗监听模式
+    imu_stop();
+
+    // 此处通过 I2C 向 0x68 发指令，配置 BMI160 开启单次/双次敲击中断
+    const struct device *i2c2_dev = DEVICE_DT_GET(DT_NODELABEL(i2c2));
+    if (device_is_ready(i2c2_dev)) {
+      i2c_reg_write_byte(i2c2_dev, 0x68, 0x40,
+                         0x30); // INT_EN_0: Enable single and double tap
+      i2c_reg_write_byte(i2c2_dev, 0x68, 0x42,
+                         0x0A); // INT_OUT_CTRL: INT1 enable, open drain
+      i2c_reg_write_byte(i2c2_dev, 0x68, 0x2B,
+                         0x01); // TAP_PARAM: standard tap logic
+    }
+  }
+}
+
+// 供外部调用的刷新休眠定时器函数
+void reset_sleep_timer() {
+  if (current_state != SYS_STATE_CHARGING && current_state != SYS_STATE_FULL) {
+    k_work_reschedule(&auto_sleep_work, K_SECONDS(30));
+  } else {
+    k_work_cancel_delayable(&auto_sleep_work); // 充电时不休眠
+  }
+}
+
+/* ================================================================== */
+/* 4. 微睡眠轮询线程 (解决没有硬件 INT 中断线的问题)                  */
+/* ================================================================== */
+static void micro_sleep_polling_thread(void) {
+  const struct device *i2c2_dev = DEVICE_DT_GET(DT_NODELABEL(i2c2));
+
+  int tap_count = 0;
+  int64_t last_tap_time = 0;
+
+  while (1) {
+    if (current_state == SYS_STATE_SLEEP) {
+      uint8_t int_status = 0;
+      // 读取 BMI160 的 INT_STATUS_0 寄存器 (0x1C)
+      if (i2c_reg_read_byte(i2c2_dev, 0x68, 0x1C, &int_status) == 0) {
+        if (int_status & 0x30) { // 检测到单次或双次敲击 (Bit 5 or Bit 4)
+          int64_t now = k_uptime_get();
+
+          // 如果距离上次敲击超过 1.5 秒，重新计数
+          if (now - last_tap_time > 1500) {
+            tap_count = 0;
+          }
+
+          tap_count++;
+          last_tap_time = now;
+          printk("[SYS] Tap detected! Count: %d\n", tap_count);
+
+          if (tap_count >= 3) {
+            printk("[SYS] Triple tap confirmed! Waking up...\n");
+            tap_count = 0;
+            current_state = SYS_STATE_PAIRING;
+            update_system_led();
+
+            // 重新开启蓝牙广播
+            bt_mgmt_adv_start(0, NULL, 0, NULL, 0, true);
+
+            // 重新开启 30 秒倒计时
+            reset_sleep_timer();
+          }
+        }
+      }
+      // 极限省电：休眠 100ms 再查一次 (1秒查10次，既省电又不会漏掉敲击)
+      k_msleep(100);
+    } else {
+      // 如果不在休眠状态，这个线程彻底挂起休息 1 秒，完全不占 CPU
+      k_msleep(1000);
+    }
+  }
+}
+
+// 注册极低优先级的后台轮询线程
+K_THREAD_DEFINE(polling_id, 1024, micro_sleep_polling_thread, NULL, NULL, NULL,
+                8, 0, 0);
+
+/* ================================================================== */
+/* 5. 蓝牙连接回调挂钩                                                */
+/* ================================================================== */
+static void meow_connected(struct bt_conn *conn, uint8_t err) {
+  if (err)
+    return;
+  printk("[BLE] Connected!\n");
+  k_work_cancel_delayable(&auto_sleep_work); // 连上后取消休眠倒计时
+  current_state = SYS_STATE_CONNECTED;
+  update_system_led();
+}
+
+static void meow_disconnected(struct bt_conn *conn, uint8_t reason) {
+  printk("[BLE] Disconnected!\n");
+  current_state = SYS_STATE_PAIRING;
+  update_system_led();
+  reset_sleep_timer(); // 断开后重新开始 30 秒倒计时
+}
+
+BT_CONN_CB_DEFINE(meow_conn_callbacks) = {
+    .connected = meow_connected,
+    .disconnected = meow_disconnected,
+};
+
+/* ================================================================== */
+/* 6. 初始化状态机                                                    */
+/* ================================================================== */
+void init_meow_state_machine() {
+  k_work_init_delayable(&auto_sleep_work, auto_sleep_handler);
+
+  // 初始化时默认为配对模式，开启蓝灯闪烁和 30 秒倒计时
+  current_state = SYS_STATE_PAIRING;
+  update_system_led();
+  reset_sleep_timer();
+}
 
 /* ================================================================== */
 /*  UART serial output helpers                                         */
@@ -434,6 +626,29 @@ static void serial_thread(void) {
 
   /* Main loop: read chars from UART and run pending BLE commands */
   while (1) {
+    /* ========================================================== */
+    /* ==== 状态机：充电检测及断开恢复机制 ==== */
+    /* ========================================================== */
+    bool is_charging = battery_controller.power_connected();
+    float soc = fuel_gauge.state_of_charge();
+
+    if (is_charging) {
+      if (soc >= 99.0f && current_state != SYS_STATE_FULL) {
+        current_state = SYS_STATE_FULL;
+        update_system_led();
+      } else if (soc < 99.0f && current_state != SYS_STATE_CHARGING) {
+        current_state = SYS_STATE_CHARGING;
+        update_system_led();
+      }
+    } else if (current_state == SYS_STATE_CHARGING ||
+               current_state == SYS_STATE_FULL) {
+      // 拔掉充电线，恢复配对模式
+      current_state = SYS_STATE_PAIRING;
+      update_system_led();
+      reset_sleep_timer();
+    }
+    /* ========================================================== */
+
     if (pending_ble_cmd == 1) {
       pending_ble_cmd = 0;
       imu_start();
@@ -499,63 +714,62 @@ static void serial_thread(void) {
         }
       }
     }
-  }
-}
 
-/* ========================================================== */
-/* ==== 新增：低电量 (<30%) 每 5 秒主动推送机制 ==== */
-/* ========================================================== */
-int64_t now = k_uptime_get();
-if (now - last_bat_check_time >= 5000) { // 5000 毫秒 = 5 秒
-  last_bat_check_time = now;             // 重置计时器
+    /* ========================================================== */
+    /* ==== 新增：低电量 (<30%) 每 5 秒主动推送机制 ==== */
+    /* ========================================================== */
+    int64_t now = k_uptime_get();
+    if (now - last_bat_check_time >= 5000) { // 5000 毫秒 = 5 秒
+      last_bat_check_time = now;             // 重置计时器
 
-  // 查询电量计当前的真实 SOC (State of Charge)
-  float current_soc = fuel_gauge.state_of_charge();
+      // 查询电量计当前的真实 SOC (State of Charge)
+      float current_soc = fuel_gauge.state_of_charge();
 
-  // 如果电量低于 30%，则主动打包并发送蓝牙 Notify
-  if (current_soc < 30.0f) {
-    fill_bat_pkt(); // 调用你已有的函数，更新 bat_pkt 结构体
+      // 如果电量低于 30%，则主动打包并发送蓝牙 Notify
+      if (current_soc < 30.0f) {
+        fill_bat_pkt(); // 调用你已有的函数，更新 bat_pkt 结构体
 
-    // 发送给所有订阅了电量特征值的蓝牙主机 (网页)
-    int ret = bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
-    if (ret == 0) {
-      // 可选：在串口也打印一个低电量警告
-      uart_printf("[WARNING] Battery low (%.1f%%), auto-notified via BLE!\r\n",
-                  current_soc);
+        // 发送给所有订阅了电量特征值的蓝牙主机 (网页)
+        int ret = bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
+        if (ret == 0) {
+          // 可选：在串口也打印一个低电量警告
+          uart_printf(
+              "[WARNING] Battery low (%.1f%%), auto-notified via BLE!\r\n",
+              current_soc);
+        }
+      }
     }
-  }
-}
-/* ========================================================== */
+    /* ========================================================== */
 
-unsigned char c;
-if (uart_poll_in(uart_dev, &c) == 0) {
-  if (c == 's') {
-    imu_start();
-  } else if (c == 'p') {
-    imu_stop();
-  } else if (c == 'b') {
-    fill_bat_pkt();
-    bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
-  } else if (c == 'R') {
-    pending_ble_cmd = 20;
-  } else if (c == 'G') {
-    pending_ble_cmd = 21;
-  } else if (c == 'B') {
-    pending_ble_cmd = 22;
-  } else if (c == 'Y') {
-    pending_ble_cmd = 23;
-  } else if (c == 'P') {
-    pending_ble_cmd = 24;
-  } else if (c == 'C') {
-    pending_ble_cmd = 25;
-  } else if (c == 'W') {
-    pending_ble_cmd = 26;
-  } else if (c == 'O') {
-    pending_ble_cmd = 27;
+    unsigned char c;
+    if (uart_poll_in(uart_dev, &c) == 0) {
+      if (c == 's') {
+        imu_start();
+      } else if (c == 'p') {
+        imu_stop();
+      } else if (c == 'b') {
+        fill_bat_pkt();
+        bt_gatt_notify(NULL, BAT_NOTIFY_ATTR, &bat_pkt, BAT_PKT_SIZE);
+      } else if (c == 'R') {
+        pending_ble_cmd = 20;
+      } else if (c == 'G') {
+        pending_ble_cmd = 21;
+      } else if (c == 'B') {
+        pending_ble_cmd = 22;
+      } else if (c == 'Y') {
+        pending_ble_cmd = 23;
+      } else if (c == 'P') {
+        pending_ble_cmd = 24;
+      } else if (c == 'C') {
+        pending_ble_cmd = 25;
+      } else if (c == 'W') {
+        pending_ble_cmd = 26;
+      } else if (c == 'O') {
+        pending_ble_cmd = 27;
+      }
+    }
+    k_sleep(K_MSEC(10));
   }
-}
-k_sleep(K_MSEC(10));
-}
 }
 
 /* Manual thread definition for deferred start — started AFTER USB enable */
@@ -579,6 +793,8 @@ int init_meow_ctrl_service(void) {
   imu_pkt.header[1] = 0x55;
   bat_pkt.header[0] = 0xBB;
   bat_pkt.header[1] = 0x66;
+
+  init_meow_state_machine();
 
   LOG_INF("Meow Control Service initialized (System Managed)");
   return 0;

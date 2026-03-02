@@ -32,8 +32,9 @@
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 
-#include <zephyr/logging/log_ctrl.h>
 #include <zephyr/device.h>
+#include <zephyr/logging/log_ctrl.h>
+
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(power_manager, LOG_LEVEL_DBG);
@@ -477,7 +478,7 @@ int PowerManager::begin() {
   }
 #endif
 
-  state_indicator.init(oe_state);
+  // state_indicator.init(oe_state);
 
   uint32_t device_id[2];
 
