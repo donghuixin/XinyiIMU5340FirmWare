@@ -52,7 +52,7 @@ extern "C" int bt_mgmt_adv_start(uint8_t flags, const struct bt_data *ad,
                                  size_t sd_len, bool enable_unrecog);
 
 static int imu_start(void);
-static int imu_stop(void);
+static void imu_stop(void);
 
 LOG_MODULE_REGISTER(meow_ctrl, CONFIG_MAIN_LOG_LEVEL);
 
