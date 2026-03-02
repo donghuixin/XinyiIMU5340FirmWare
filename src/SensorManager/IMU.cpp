@@ -83,7 +83,12 @@ bool IMU::init(struct k_msgq *queue) {
     return false;
   }
 
-  imu.setAccelRange(eAccelRange_2G);
+  // ===== 传感器量程配置 =====
+  // 1. 加速度计：±16G
+  imu.setAccelRange(eAccelRange_16G);
+  // 2. 陀螺仪：±2000 dps
+  imu.setGyroRange(eGyroRange_2000DPS);
+  // ============================
 
   sensor_queue = queue;
 
