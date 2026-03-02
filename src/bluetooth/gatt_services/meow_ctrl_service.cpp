@@ -146,8 +146,10 @@ static void auto_sleep_handler(struct k_work *work) {
 // 供外部调用的刷新休眠定时器函数
 void reset_sleep_timer() {
   if (current_state != SYS_STATE_CHARGING && current_state != SYS_STATE_FULL) {
-    k_work_reschedule(&auto_sleep_work, K_SECONDS(30));
+    printk("[SYS] Sleep timer reset to 120s.\n");
+    k_work_reschedule(&auto_sleep_work, K_SECONDS(120));
   } else {
+    printk("[SYS] Charging/Full: auto-sleep disabled.\n");
     k_work_cancel_delayable(&auto_sleep_work); // 充电时不休眠
   }
 }
@@ -233,6 +235,7 @@ BT_CONN_CB_DEFINE(meow_conn_callbacks) = {
 /* 6. 初始化状态机                                                    */
 /* ================================================================== */
 void init_meow_state_machine() {
+  printk("\n[SYS] init_meow_state_machine() called! Starting sleep timer...\n");
   k_work_init_delayable(&auto_sleep_work, auto_sleep_handler);
 
   // 初始化时默认为配对模式，开启蓝灯闪烁和 30 秒倒计时
