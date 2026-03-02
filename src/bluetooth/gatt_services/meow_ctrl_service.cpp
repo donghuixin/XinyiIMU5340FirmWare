@@ -564,27 +564,35 @@ static ssize_t write_cmd(struct bt_conn *conn, const struct bt_gatt_attr *attr,
   /* ==== RGB 颜色指令 ==== */
   case 'R':
     pending_ble_cmd = 20;
+    printk("[BLE] Cmd R -> Red\n");
     break; // 红色 (Red)
   case 'G':
     pending_ble_cmd = 21;
+    printk("[BLE] Cmd G -> Green\n");
     break; // 绿色 (Green)
   case 'B':
     pending_ble_cmd = 22;
+    printk("[BLE] Cmd B -> Blue\n");
     break; // 蓝色 (Blue)
   case 'Y':
     pending_ble_cmd = 23;
+    printk("[BLE] Cmd Y -> Yellow\n");
     break; // 黄色 (Yellow = R+G)
   case 'P':
     pending_ble_cmd = 24;
+    printk("[BLE] Cmd P -> Purple\n");
     break; // 紫色 (Purple = R+B)
   case 'C':
     pending_ble_cmd = 25;
+    printk("[BLE] Cmd C -> Cyan\n");
     break; // 青色 (Cyan = G+B)
   case 'W':
     pending_ble_cmd = 26;
+    printk("[BLE] Cmd W -> White\n");
     break; // 白色 (White = R+G+B)
   case 'O':
     pending_ble_cmd = 27;
+    printk("[BLE] Cmd O -> OFF\n");
     break; // 关闭 (Off)
   /* ====================== */
   default:
@@ -663,56 +671,70 @@ static void serial_thread(void) {
       int color_cmd = pending_ble_cmd;
       pending_ble_cmd = 0;
 
+      printk("\n--- [I2C DEBUG] 准备操作 KTD2026 (0x30) ---\n");
+
+      // 1. 获取设备句柄
       const struct device *i2c1_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
-      if (device_is_ready(i2c1_dev)) {
-        uint8_t r = 0, g = 0, b = 0;
-        uint8_t bright = 0x55;
-
-        switch (color_cmd) {
-        case 20:
-          r = bright;
-          break; // 红
-        case 21:
-          g = bright;
-          break; // 绿
-        case 22:
-          b = bright;
-          break; // 蓝
-        case 23:
-          r = bright;
-          g = bright;
-          break; // 黄
-        case 24:
-          r = bright;
-          b = bright;
-          break; // 紫
-        case 25:
-          g = bright;
-          b = bright;
-          break; // 青
-        case 26:
-          r = bright;
-          g = bright;
-          b = bright;
-          break; // 白
-        case 27:
-          break; // 关
-        }
-
-        if (color_cmd == 27) {
-          i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x00); // 芯片休眠关闭
-          uart_printf("[LED] Turned OFF\r\n");
-        } else {
-          i2c_reg_write_byte(i2c1_dev, 0x30, 0x00,
-                             0x08); // 唤醒芯片进入Normal模式 (Bit 4:3 = 01)
-          i2c_reg_write_byte(i2c1_dev, 0x30, 0x06, r); // I_R (Red)
-          i2c_reg_write_byte(i2c1_dev, 0x30, 0x07, g); // I_G (Green)
-          i2c_reg_write_byte(i2c1_dev, 0x30, 0x08, b); // I_B (Blue)
-          i2c_reg_write_byte(i2c1_dev, 0x30, 0x04,
-                             0x15); // EN_CH (010101: All CH Linear Mode)
-          uart_printf("[LED] Color Set (R:%02X, G:%02X, B:%02X)\r\n", r, g, b);
-        }
+      if (!device_is_ready(i2c1_dev)) {
+        printk("❌ [ERROR] i2c1_dev 未就绪！\n");
+        continue;
       }
+
+      uint8_t r = 0, g = 0, b = 0;
+      uint8_t bright = 0x55;
+
+      switch (color_cmd) {
+      case 20:
+        r = bright;
+        break; // 红
+      case 21:
+        g = bright;
+        break; // 绿
+      case 22:
+        b = bright;
+        break; // 蓝
+      case 23:
+        r = bright;
+        g = bright;
+        break; // 黄
+      case 24:
+        r = bright;
+        b = bright;
+        break; // 紫
+      case 25:
+        g = bright;
+        b = bright;
+        break; // 青
+      case 26:
+        r = bright;
+        g = bright;
+        b = bright;
+        break; // 白
+      case 27:
+        break; // 关
+      }
+
+      int err = 0;
+      if (color_cmd == 27) {
+        err = i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x00);
+      } else {
+        // 连续写入，并捕获第一次写入的错误码
+        err = i2c_reg_write_byte(i2c1_dev, 0x30, 0x00, 0x08);
+        i2c_reg_write_byte(i2c1_dev, 0x30, 0x04, 0x15);
+        i2c_reg_write_byte(i2c1_dev, 0x30, 0x06, r);
+        i2c_reg_write_byte(i2c1_dev, 0x30, 0x07, g);
+        i2c_reg_write_byte(i2c1_dev, 0x30, 0x08, b);
+      }
+
+      if (err == 0) {
+        printk("✅ [SUCCESS] I2C 写入成功！LED "
+               "应该亮了。如果没亮，请检查硬件是否接在 i2c2 上。\n");
+      } else {
+        printk("❌ [FAILED] I2C 写入失败！错误码: %d\n", err);
+        printk("👉 [诊断] 如果错误码是 -5 (EIO)，说明 KTD2026 "
+               "没电，或总线上根本没这个芯片！\n");
+      }
+      printk("----------------------------------------\n\n");
     }
 
     /* ========================================================== */
