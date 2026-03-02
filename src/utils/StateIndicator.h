@@ -3,6 +3,9 @@
 
 #include "openearable_common.h"
 
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/kernel.h>
+
 static const RGBColor LED_OFF = {0, 0, 0};
 static const RGBColor LED_RED = {32, 0, 0};
 static const RGBColor LED_GREEN = {0, 32, 0};
@@ -26,9 +29,17 @@ public:
   void set_indication_mode(enum led_mode state);
   void set_custom_color(const RGBColor &color);
 
+  // Timer callback for charging LED blinking
+  static void charging_led_expiry_fn(struct k_timer *timer_id);
+
 private:
   earable_state _state;
   RGBColor color;
+  
+  // P1.08 Charging LED
+  const struct gpio_dt_spec charging_led_spec;
+  struct k_timer charging_led_timer;
+  bool charging_led_on;
 };
 
 extern StateIndicator state_indicator;

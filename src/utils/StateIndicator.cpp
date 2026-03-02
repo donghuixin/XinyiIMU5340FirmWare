@@ -3,6 +3,8 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/devicetree.h>
 
 #include "openearable_common.h"
 #include "zbus_common.h"
@@ -78,10 +80,30 @@ static void power_evt_handler(const struct zbus_channel *chan) {
 
 ZBUS_LISTENER_DEFINE(power_evt_listen, power_evt_handler); // static
 
+const struct device *gpio_dev;
+
+void StateIndicator::charging_led_expiry_fn(struct k_timer *timer_id) {
+  StateIndicator *self = CONTAINER_OF(timer_id, StateIndicator, charging_led_timer);
+  if (self->charging_led_on) {
+    gpio_pin_set_dt(&self->charging_led_spec, 0);
+    self->charging_led_on = false;
+  } else {
+    gpio_pin_set_dt(&self->charging_led_spec, 1);
+    self->charging_led_on = true;
+  }
+}
+
 void StateIndicator::init(struct earable_state state) {
   int ret;
 
   led_controller.begin();
+
+  // Initialize P1.08 Charging LED
+  if (device_is_ready(charging_led_spec.port)) {
+    gpio_pin_configure_dt(&charging_led_spec, GPIO_OUTPUT_INACTIVE);
+    charging_led_on = false;
+  }
+  k_timer_init(&charging_led_timer, charging_led_expiry_fn, NULL);
 
   ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen3,
                           ZBUS_ADD_OBS_TIMEOUT_MS);
@@ -137,6 +159,33 @@ void StateIndicator::set_state(struct earable_state state) {
 
   LOG_INF("LED state: charging=%d, pairing=%d, sd=%d", _state.charging_state,
           _state.pairing_state, _state.sd_state);
+
+  // --- P1.08 Charging LED Logic ---
+  if (_state.charging_state == CHARGING) {
+     // Start blinking if not already running (approximate check) or just restart
+     // 2s period (1000ms ON, 1000ms OFF)
+     // To avoid resetting phase every time set_state is called, check if already active?
+     // For simplicity, just start passing K_NO_WAIT starts immediately.
+     // To avoid glitching, maybe check if state changed?
+     // Since this function is called on event, it might be frequent.
+     // But charging state changes are infrequent.
+     // Let's protect with a static variable or check existing timer state?
+     // Zephyr k_timer_start resets the timer.
+     // We should only start if we transitioned into CHARGING.
+     // But we don't store previous state here easily except imply via LOG.
+     // Current simplistic approach:
+     if (k_timer_remaining_get(&charging_led_timer) == 0) {
+         k_timer_start(&charging_led_timer, K_NO_WAIT, K_MSEC(1000));
+         charging_led_on = true; // Timer expiry will toggle
+         gpio_pin_set_dt(&charging_led_spec, 1);
+     }
+  } else {
+     // Stop timer
+     k_timer_stop(&charging_led_timer);
+     gpio_pin_set_dt(&charging_led_spec, 0); // Off
+     charging_led_on = false;
+  }
+  // -------------------------------
 
   // do not update the state if set to custom color
   if (_state.led_mode == CUSTOM) {
@@ -208,5 +257,9 @@ void StateIndicator::set_state(struct earable_state state) {
   }
 }
 
-StateIndicator::StateIndicator() {}
+StateIndicator::StateIndicator()
+    : charging_led_spec(GPIO_DT_SPEC_GET(DT_NODELABEL(charging_led), gpios)),
+      charging_led_on(false) {
+  memset(&_state, 0, sizeof(_state));
+}
 StateIndicator state_indicator;

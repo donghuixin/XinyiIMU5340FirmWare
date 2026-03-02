@@ -37,7 +37,7 @@ struct ring_buf ring_buffer;
 struct k_mutex write_mutex;
 uint8_t buffer[BUFFER_SIZE]; // Ring Buffer Speicher
 
-int count_max_buffer_fill = 0;
+uint32_t count_max_buffer_fill = 0;
 
 struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt = K_POLL_EVENT_INITIALIZER(
@@ -75,7 +75,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
         }
     }*/
 
-    sdlogger.write_sensor_data(msg->data);
+    ret = sdlogger.write_sensor_data(msg->data);
 
     if (ret) {
       LOG_WRN("sd msg queue full");
@@ -266,7 +266,7 @@ int SDLogger::write_sensor_data(const void *const *data_blocks,
   }
 
   for (size_t i = 0; i < block_count; i++) {
-    int written =
+    uint32_t written =
         ring_buf_put(&ring_buffer, (const uint8_t *)data_blocks[i], lengths[i]);
     if (written < lengths[i]) {
       k_mutex_unlock(&write_mutex);

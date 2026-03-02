@@ -258,7 +258,7 @@
 
 /** Soft reset command */
 #define BMX160_SOFT_RESET_CMD                    0xb6
-#define BMX160_SOFT_RESET_DELAY_MS               15
+#define BMX160_SOFT_RESET_DELAY_MS               100
 /** Start FOC command */
 #define BMX160_START_FOC_CMD                     0x03
 /** NVM backup enabling command */

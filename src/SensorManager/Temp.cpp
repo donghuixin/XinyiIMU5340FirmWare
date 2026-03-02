@@ -81,7 +81,8 @@ void Temp::start(int sample_rate_idx) {
   if (!_active)
     return;
 
-  k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
+  uint32_t period_us = (uint32_t)(1000000.0 / (double)sample_rates.true_sample_rates[sample_rate_idx]);
+  k_timeout_t t = K_USEC(period_us);
 
   temp.setSampleRateRegVal(sample_rates.reg_vals[sample_rate_idx]);
   temp.continuousMode();

@@ -416,7 +416,14 @@ int bt_mgmt_init(void) {
 
   bt_gatt_cb_register(&gatt_callbacks);
 
-  snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s", CONFIG_BT_DEVICE_NAME);
+  // Get BLE Address (Mac Address)
+  bt_addr_le_t addr;
+  size_t count = 1;
+  bt_id_get(&addr, &count);
+  
+  // Format: Xinyi_IMU_XXXX (Last 2 bytes of MAC)
+  snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "Xinyi_IMU_%02X%02X", 
+           addr.a.val[1], addr.a.val[0]);
   printk("Setting device name to: %s\n", name);
 
   ret = bt_set_name(name);

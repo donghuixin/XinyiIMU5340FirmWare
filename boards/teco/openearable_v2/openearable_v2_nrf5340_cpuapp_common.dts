@@ -19,7 +19,17 @@
 
 	 aliases {
 		 //ldo-ctrl = &ldo_ctrl;
+         charging-led = &charging_led;
 	 };
+
+    leds {
+        compatible = "gpio-leds";
+        charging_led: led_1 {
+            gpios = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+            label = "Charging LED";
+        };
+    };
+
  
  
 	 sd_state: sd_state {

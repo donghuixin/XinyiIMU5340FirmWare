@@ -42,16 +42,30 @@ const uint8_t int_mask_lookup_table[13] = {BMX160_INT1_SLOPE_MASK,
 bool DFRobot_BMI160::begin() {
   _i2c->begin();
 
+  // 1. 扫描芯片，确认通信正常
   if (scan() == true) {
+    // 2. 软复位（重置所有状态）
     softReset();
-    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);
-    delay(50);
-    /* Set gyro to normal mode */
-    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
-    delay(100);
+    delay(10); // 手册要求≥5ms即可
+
+    // 3. 初始化加速度计（16G + 100Hz）
+    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11); // 加速度正常模式
+    delay(5);
+    writeBmxReg(0x41, 0x03); // BMX160_ACCEL_RANGE = ±16G
+    writeBmxReg(0x40, 0x27); // BMX160_ACCEL_CONFIG = 100Hz
+    delay(5);
+
+    // 4. 初始化陀螺仪（2000dps + 100Hz）
+    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15); // 陀螺仪正常模式
+    delay(5);
+    writeBmxReg(0x43, 0x00); // BMX160_GYRO_RANGE = ±2000dps
+    writeBmxReg(0x42, 0x27); // BMX160_GYRO_CONFIG = 100Hz
+    delay(5);
+
     return true;
-  } else
+  } else {
     return false;
+  }
 }
 
 void DFRobot_BMI160::setLowPower() {

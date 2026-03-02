@@ -760,7 +760,7 @@ static void serial_thread(void) {
           // 可选：在串口也打印一个低电量警告
           uart_printf(
               "[WARNING] Battery low (%.1f%%), auto-notified via BLE!\r\n",
-              current_soc);
+              (double)current_soc);
         }
       }
     }

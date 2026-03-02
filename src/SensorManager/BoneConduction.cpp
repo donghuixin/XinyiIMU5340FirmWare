@@ -74,7 +74,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
   const int _size = 3 * sizeof(int16_t);
 
   while (written < num_samples) {
-    int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size,
+    int to_write = MIN((int)((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size),
                        num_samples - written);
     if (to_write <= 0)
       break;
@@ -119,13 +119,14 @@ void BoneConduction::start(int sample_rate_idx) {
   if (!_active)
     return;
 
-  t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
+  t_sample_us = (uint32_t)(1000000.0 / (double)sample_rates.true_sample_rates[sample_rate_idx]);
 
   k_timeout_t t = K_USEC(t_sample_us);
 
   int word_size = 3 * sizeof(int16_t) + 1;
+  int calculated_samples = (int)(CONFIG_SENSOR_LATENCY_MS * 1000.0 / (double)t_sample_us);
   _num_samples_buffered =
-      MIN(MAX(1, (int)(CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)),
+      MIN(MAX(1, calculated_samples),
           512 / word_size - 8); // Buffer size is 512 bytes
 
   bma580.init(sample_rates.reg_vals[sample_rate_idx],

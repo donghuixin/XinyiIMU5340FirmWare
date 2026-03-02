@@ -91,7 +91,7 @@ void PPG::update_sensor(struct k_work *work) {
     const int _size = 4 * sizeof(uint32_t); // red, ir, green, ambient
 
     while (written < num_samples) {
-      int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size,
+      int to_write = MIN((int)((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size),
                          num_samples - written);
       if (to_write <= 0)
         break;
@@ -137,13 +137,12 @@ void PPG::start(int sample_rate_idx) {
   if (!_active)
     return;
 
-  t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
+  t_sample_us = (uint32_t)(1000000.0 / (double)sample_rates.true_sample_rates[sample_rate_idx]);
 
   k_timeout_t t = K_USEC(t_sample_us);
 
-  _num_samples_buffered =
-      MIN(MAX(1, (int)(CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)),
-          FIFO_SIZE / LED_NUM - 2);
+  int calculated_samples = (int)(CONFIG_SENSOR_LATENCY_MS * 1000.0 / (double)t_sample_us);
+  _num_samples_buffered = MIN(MAX(1, calculated_samples), FIFO_SIZE / LED_NUM - 2);
 
   ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
   ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * LED_NUM);
