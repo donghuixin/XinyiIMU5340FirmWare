@@ -484,6 +484,30 @@ static void meow_ctrl_zbus_handler(const struct zbus_channel *chan) {
     memcpy(&gy_f, &msg->data.data[16], sizeof(float));
     memcpy(&gz_f, &msg->data.data[20], sizeof(float));
 
+    static uint32_t imu_msg_count = 0;
+    static uint32_t gyro_zero_streak = 0;
+    imu_msg_count++;
+
+    if (gx_f == 0.0f && gy_f == 0.0f && gz_f == 0.0f) {
+      gyro_zero_streak++;
+      if ((gyro_zero_streak % 100) == 0) {
+        LOG_WRN("MEOW RX gyro zero streak=%u (msg_size=%u) A[%f,%f,%f]",
+                gyro_zero_streak, msg->data.size, (double)ax_f, (double)ay_f,
+                (double)az_f);
+      }
+    } else {
+      if (gyro_zero_streak >= 10) {
+        LOG_INF("MEOW RX gyro recovered after streak=%u", gyro_zero_streak);
+      }
+      gyro_zero_streak = 0;
+    }
+
+    if ((imu_msg_count % 200) == 0) {
+      LOG_INF("MEOW RX sample#%u size=%u A[%f,%f,%f] G[%f,%f,%f]",
+              imu_msg_count, msg->data.size, (double)ax_f, (double)ay_f,
+              (double)az_f, (double)gx_f, (double)gy_f, (double)gz_f);
+    }
+
     /* Convert to int16_t */
     int16_t ax = (int16_t)(ax_f * ACCEL_SCALE_FACTOR);
     int16_t ay = (int16_t)(ay_f * ACCEL_SCALE_FACTOR);

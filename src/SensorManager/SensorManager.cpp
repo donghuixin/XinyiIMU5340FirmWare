@@ -185,6 +185,10 @@ static void config_work_handler(struct k_work *work) {
 		return;
 	}
 
+	LOG_INF("Config sensor id=%u idx=%u rate=%.2fHz storage=0x%02X",
+		config.sensorId, config.sampleRateIndex, (double)sampleRate,
+		config.storageOptions);
+
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config.sensorId);
 
 	if (sensor == NULL) {
@@ -207,11 +211,19 @@ static void config_work_handler(struct k_work *work) {
 
 	if (config.storageOptions & (DATA_STORAGE | DATA_STREAMING)) {
 		if (sensor->init(&sensor_queue)) {
+			LOG_INF("Sensor %u init OK, starting...", config.sensorId);
 			if (active_sensors == 0) start_sensor_manager();
 			sensor->start(config.sampleRateIndex);
 			if (sensor->is_running()) {
 				active_sensors++;
+				LOG_INF("Sensor %u running. active_sensors=%d", config.sensorId,
+					active_sensors);
+			} else {
+				LOG_WRN("Sensor %u start called but sensor is not running",
+					config.sensorId);
 			}
+		} else {
+			LOG_ERR("Sensor %u init failed", config.sensorId);
 		}
 	}
 

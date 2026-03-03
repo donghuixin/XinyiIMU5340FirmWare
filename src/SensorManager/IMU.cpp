@@ -38,8 +38,22 @@ void IMU::update_sensor(struct k_work *work) {
   static int print_divider = 0;
   if (++print_divider >= 100) {
     print_divider = 0;
-    LOG_INF("IMU 1Hz Heartbeat: Accel X: %f, Y: %f, Z: %f",
-            (double)accel_data.x, (double)accel_data.y, (double)accel_data.z);
+    LOG_INF("IMU 1Hz HB A[%f,%f,%f] G[%f,%f,%f]",
+            (double)accel_data.x, (double)accel_data.y, (double)accel_data.z,
+            (double)gyro_data.x, (double)gyro_data.y, (double)gyro_data.z);
+  }
+
+  static uint32_t gyro_zero_streak = 0;
+  if (gyro_data.x == 0.0f && gyro_data.y == 0.0f && gyro_data.z == 0.0f) {
+    gyro_zero_streak++;
+    if ((gyro_zero_streak % 100) == 0) {
+      LOG_WRN("Gyro remains zero for %u consecutive samples", gyro_zero_streak);
+    }
+  } else {
+    if (gyro_zero_streak >= 10) {
+      LOG_INF("Gyro recovered after zero streak=%u", gyro_zero_streak);
+    }
+    gyro_zero_streak = 0;
   }
 
   size_t size = 3 * sizeof(float);
@@ -88,6 +102,7 @@ bool IMU::init(struct k_msgq *queue) {
   imu.setAccelRange(eAccelRange_16G);
   // 2. 陀螺仪：±2000 dps
   imu.setGyroRange(eGyroRange_2000DPS);
+  imu.debugDumpRegisters("imu:init_done");
   // ============================
 
   sensor_queue = queue;
@@ -102,11 +117,16 @@ void IMU::start(int sample_rate_idx) {
   if (!_active)
     return;
 
+  LOG_INF("IMU start called: sample_rate_idx=%d reg=0x%02X true_hz=%.1f",
+          sample_rate_idx, sample_rates.reg_vals[sample_rate_idx],
+          (double)sample_rates.true_sample_rates[sample_rate_idx]);
+
   k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
 
   imu.setAccelODR(sample_rates.reg_vals[sample_rate_idx]);
   imu.setGyroODR(sample_rates.reg_vals[sample_rate_idx]);
   imu.setMagnODR(sample_rates.reg_vals[sample_rate_idx]);
+  imu.debugDumpRegisters("imu:start_after_odr");
 
   _running = true;
 

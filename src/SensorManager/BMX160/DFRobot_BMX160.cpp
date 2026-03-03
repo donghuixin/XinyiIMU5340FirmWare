@@ -43,15 +43,44 @@ bool DFRobot_BMI160::begin() {
   _i2c->begin();
 
   if (scan() == true) {
+    debugDumpRegisters("begin:pre_reset");
     softReset();
+    debugDumpRegisters("begin:post_reset");
     writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);
     delay(50);
+    debugDumpRegisters("begin:after_accel_normal");
     /* Set gyro to normal mode */
     writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
     delay(100);
+    debugDumpRegisters("begin:after_gyro_normal");
     return true;
   } else
     return false;
+}
+
+void DFRobot_BMI160::debugDumpRegisters(const char *tag) {
+  uint8_t chip_id = 0;
+  uint8_t err = 0;
+  uint8_t pmu = 0;
+  uint8_t status = 0;
+  uint8_t acc_cfg = 0;
+  uint8_t acc_rng = 0;
+  uint8_t gyr_cfg = 0;
+  uint8_t gyr_rng = 0;
+
+  readReg(BMX160_CHIP_ID_ADDR, &chip_id, 1);
+  readReg(BMX160_ERROR_REG_ADDR, &err, 1);
+  readReg(0x03, &pmu, 1); /* PMU_STATUS */
+  readReg(BMX160_STATUS_ADDR, &status, 1);
+  readReg(BMX160_ACCEL_CONFIG_ADDR, &acc_cfg, 1);
+  readReg(BMX160_ACCEL_RANGE_ADDR, &acc_rng, 1);
+  readReg(BMX160_GYRO_CONFIG_ADDR, &gyr_cfg, 1);
+  readReg(BMX160_GYRO_RANGE_ADDR, &gyr_rng, 1);
+
+  LOG_INF("[%s] BMI160 regs: CHIP=0x%02X ERR=0x%02X PMU=0x%02X ST=0x%02X "
+          "ACC_CFG=0x%02X ACC_RNG=0x%02X GYR_CFG=0x%02X GYR_RNG=0x%02X",
+          tag ? tag : "dump", chip_id, err, pmu, status, acc_cfg, acc_rng,
+          gyr_cfg, gyr_rng);
 }
 
 void DFRobot_BMI160::setLowPower() {
@@ -174,6 +203,12 @@ void DFRobot_BMI160::setGyroRange(eGyroRange_t bits) {
     gyroRange = BMX160_GYRO_SENSITIVITY_250DPS;
     break;
   }
+
+  /* Explicitly configure gyro range in hardware and verify. */
+  writeBmxReg(BMX160_GYRO_RANGE_ADDR, bits);
+  uint8_t readback = 0;
+  readReg(BMX160_GYRO_RANGE_ADDR, &readback, 1);
+  LOG_INF("Set gyro range reg=0x%02X readback=0x%02X", bits, readback);
 }
 
 void DFRobot_BMI160::setAccelRange(eAccelRange_t bits) {
@@ -203,11 +238,27 @@ void DFRobot_BMI160::setMagnODR(uint8_t val) {
 }
 
 void DFRobot_BMI160::setGyroODR(uint8_t val) {
-  writeBmxReg(BMX160_GYRO_CONFIG_ADDR, BMX160_GYRO_ODR_MASK & val);
+  uint8_t current = 0;
+  readReg(BMX160_GYRO_CONFIG_ADDR, &current, 1);
+  uint8_t updated =
+      (current & ~BMX160_GYRO_ODR_MASK) | (val & BMX160_GYRO_ODR_MASK);
+  writeBmxReg(BMX160_GYRO_CONFIG_ADDR, updated);
+  uint8_t readback = 0;
+  readReg(BMX160_GYRO_CONFIG_ADDR, &readback, 1);
+  LOG_INF("Set gyro ODR val=0x%02X cfg old=0x%02X new=0x%02X rb=0x%02X", val,
+          current, updated, readback);
 }
 
 void DFRobot_BMI160::setAccelODR(uint8_t val) {
-  writeBmxReg(BMX160_ACCEL_CONFIG_ADDR, BMX160_ACCEL_ODR_MASK & val);
+  uint8_t current = 0;
+  readReg(BMX160_ACCEL_CONFIG_ADDR, &current, 1);
+  uint8_t updated =
+      (current & ~BMX160_ACCEL_ODR_MASK) | (val & BMX160_ACCEL_ODR_MASK);
+  writeBmxReg(BMX160_ACCEL_CONFIG_ADDR, updated);
+  uint8_t readback = 0;
+  readReg(BMX160_ACCEL_CONFIG_ADDR, &readback, 1);
+  LOG_INF("Set accel ODR val=0x%02X cfg old=0x%02X new=0x%02X rb=0x%02X", val,
+          current, updated, readback);
 }
 
 void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
@@ -217,6 +268,10 @@ void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
   // BMI160: read 12 bytes from 0x0C (6 bytes gyro + 6 bytes accel)
   uint8_t data[12] = {0};
   int16_t x = 0, y = 0, z = 0;
+  int16_t gx_raw = 0, gy_raw = 0, gz_raw = 0;
+  int16_t ax_raw = 0, ay_raw = 0, az_raw = 0;
+  static uint32_t sample_count = 0;
+  static uint32_t gyro_zero_streak = 0;
 
   readReg(BMX160_GYRO_DATA_ADDR, data, 12);
 
@@ -228,6 +283,9 @@ void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
     x = (int16_t)(((uint16_t)data[1] << 8) | data[0]);
     y = (int16_t)(((uint16_t)data[3] << 8) | data[2]);
     z = (int16_t)(((uint16_t)data[5] << 8) | data[4]);
+    gx_raw = x;
+    gy_raw = y;
+    gz_raw = z;
     gyro->x = x * gyroRange;
     gyro->y = y * gyroRange;
     gyro->z = z * gyroRange;
@@ -237,9 +295,38 @@ void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
     x = (int16_t)(((uint16_t)data[7] << 8) | data[6]);
     y = (int16_t)(((uint16_t)data[9] << 8) | data[8]);
     z = (int16_t)(((uint16_t)data[11] << 8) | data[10]);
+    ax_raw = x;
+    ay_raw = y;
+    az_raw = z;
     accel->x = x * accelRange;
     accel->y = y * accelRange;
     accel->z = z * accelRange;
+  }
+
+  sample_count++;
+
+  bool gyro_all_zero = (gx_raw == 0 && gy_raw == 0 && gz_raw == 0);
+  if (gyro_all_zero) {
+    gyro_zero_streak++;
+  } else {
+    gyro_zero_streak = 0;
+  }
+
+  if ((sample_count % 100) == 0 ||
+      (gyro_zero_streak > 0 && (gyro_zero_streak % 50) == 0)) {
+    uint8_t pmu = 0;
+    uint8_t err = 0;
+    uint8_t gyr_cfg = 0;
+    uint8_t gyr_rng = 0;
+    readReg(0x03, &pmu, 1); /* PMU_STATUS */
+    readReg(BMX160_ERROR_REG_ADDR, &err, 1);
+    readReg(BMX160_GYRO_CONFIG_ADDR, &gyr_cfg, 1);
+    readReg(BMX160_GYRO_RANGE_ADDR, &gyr_rng, 1);
+
+    LOG_INF("IMU sample#%u raw A[%d,%d,%d] G[%d,%d,%d] zero_streak=%u "
+            "PMU=0x%02X ERR=0x%02X GCFG=0x%02X GRNG=0x%02X",
+            sample_count, ax_raw, ay_raw, az_raw, gx_raw, gy_raw, gz_raw,
+            gyro_zero_streak, pmu, err, gyr_cfg, gyr_rng);
   }
 }
 

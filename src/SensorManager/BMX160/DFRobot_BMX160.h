@@ -991,6 +991,12 @@ class DFRobot_BMI160{
     bool begin();
 
     /**
+     * @brief Dump key BMI160 registers for debug.
+     * @param tag Short tag printed with dump output.
+     */
+    void debugDumpRegisters(const char *tag);
+
+    /**
      * @fn setGyroRange
      * @brief set gyroscope angular rate range and resolution.
      * @param bits 
