@@ -122,7 +122,7 @@
 
 		load-switch {
 			compatible = "load-switch";
-			enable-gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
+			enable-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
 			power-delay-us = <600>; // 250us per datasheet
 			status = "okay";
         };
