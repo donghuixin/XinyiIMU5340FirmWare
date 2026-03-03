@@ -26,9 +26,10 @@
 // #include "led.h"
 #include "bt_mgmt.h"
 #include "button_assignments.h"
+#include "channel_assignment.h"
 #include "fw_info_app.h"
 #include "macros_common.h"
-#include "channel_assignment.h"
+
 
 #include "BootState.h"
 
@@ -149,14 +150,14 @@ static void button_msg_sub_thread(void) {
           break;
         }
 
-      #if IS_ENABLED(CONFIG_NRF5340_AUDIO)
+#if IS_ENABLED(CONFIG_NRF5340_AUDIO)
         ret = audio_system_encode_test_tone_step();
         if (ret) {
           LOG_WRN("Failed to play test tone, ret: %d", ret);
         }
-      #else
+#else
         LOG_WRN("Test tone unavailable (CONFIG_NRF5340_AUDIO is disabled)");
-      #endif
+#endif
 
         break;
       }
@@ -762,9 +763,6 @@ int streamctrl_start() // streamctrl_start
     return ret;
   }
 #else
-  const struct bt_data ad[] = {
-      BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-  };
   ret = bt_mgmt_adv_start(0, ad, ARRAY_SIZE(ad), NULL, 0, true);
   if (ret) {
     LOG_ERR("Failed to start adv: %d", ret);

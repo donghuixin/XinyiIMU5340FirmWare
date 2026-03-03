@@ -12,9 +12,6 @@
 #include <zephyr/shell/shell_uart.h>
 #include <zephyr/usb/usb_device.h>
 
-
-// #include "../src/modules/sd_card.h"
-
 #include <zephyr/settings/settings.h>
 
 #include "macros_common.h"
@@ -23,6 +20,10 @@
 
 #include "../src/Battery/PowerManager.h"
 #include "../src/SensorManager/SensorManager.h"
+
+// [關鍵新增] 直接引入 IMU 的標頭檔，確保編譯器認得 IMU::sensor
+#include "../src/SensorManager/IMU.h"
+
 #include "../src/utils/StateIndicator.h"
 
 #include "battery_service.h"
@@ -37,28 +38,19 @@
 
 #include "../src/SD_Card/SDLogger/SDLogger.h"
 
-#include "uicr.h"
-
-#include "streamctrl.h"
-
 #include "bt_mgmt.h"
-
-// #include "sd_card.h"
+#include "uicr.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
-// BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console),
-// zephyr_cdc_acm_uart), 	     "Console device is not ACM CDC UART
-// device");
-
-/* STEP 5.4 - Include header for USB */
-#include <zephyr/usb/usb_device.h>
-
-#include "meow_ctrl_service.h"
 
 #include <zephyr/bluetooth/services/nus.h>
 
 extern "C" void force_load_switches_on(void);
+
+// [關鍵新增] 宣告定義在 SensorManager.cpp 中的 sensor_queue
+// 這樣我們才能在 main 裡面把它傳遞給 IMU 的 init 函數
+extern struct k_msgq sensor_queue;
 
 static void i2c_bus_scan(const struct device *bus, const char *name) {
   if (!device_is_ready(bus)) {
@@ -102,7 +94,6 @@ int main(void) {
   /* I2C bus scan for hardware discovery */
   i2c_bus_scan(DEVICE_DT_GET(DT_NODELABEL(i2c1)), "i2c1");
   i2c_bus_scan(DEVICE_DT_GET(DT_NODELABEL(i2c2)), "i2c2");
-  /* i2c3 disabled in device tree, skip scan */
   LOG_INF("I2C scan complete");
 
   k_msleep(1000); // Wait for J-Link to poll RTT before touching hardware
@@ -110,17 +101,10 @@ int main(void) {
   LOG_INF("Starting PowerManager::begin()...");
   ret = power_manager.begin();
   LOG_INF("PowerManager::begin() returned %d", ret);
-  if (ret) {
-  }
   ERR_CHK(ret);
 
   uint8_t standalone = uicr_standalone_get();
-
   LOG_INF("Standalone mode: %i", standalone);
-
-  /*sdcard_manager.init();
-
-  sdcard_manager.mount();*/
 
   /* STEP 5.5 - Enable USB */
   if (IS_ENABLED(CONFIG_USB_DEVICE_STACK)) {
@@ -133,11 +117,9 @@ int main(void) {
 
   /* Start serial thread now that USB CDC ACM is ready */
   meow_ctrl_start_serial_thread();
-
   streamctrl_start();
 
   uint32_t sirk = uicr_sirk_get();
-
   if (sirk == 0xFFFFFFFFU) {
     state_indicator.set_pairing_state(SET_PAIRING);
   } else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {
@@ -146,23 +128,21 @@ int main(void) {
     state_indicator.set_pairing_state(BONDING);
   }
 
+  // 初始化 SensorManager (此時只是準備好佇列與執行緒，還沒操作硬體)
   init_sensor_manager();
 
-  /* --- Boot-time IMU test: enable BMI160 at 80 Hz to verify I2C2 --- */
-  {
-    sensor_config imu = {ID_IMU, 80, 0};
-    config_sensor(&imu);
-    LOG_INF("Boot-time IMU config sent (ID_IMU, 80 Hz)");
-  }
+  // =========================================================================
+  // [系統穩定性核心] 同步硬體喚醒區塊
+  // 在藍牙通訊還沒產生大量中斷前，直接在這裡完成耗時的 IMU 喚醒流程。
+  // =========================================================================
+  LOG_INF("--- Performing Synchronous Hardware Initializations ---");
+  LOG_INF("Initializing IMU hardware (blocking wait for PMU)...");
 
-  // sensor_config imu = {ID_PPG, 400, 0};
-  // sensor_config temp = {ID_OPTTEMP, 10, 0};
-  //  sensor_config temp = {ID_BONE_CONDUCTION, 100, 0};
+  // 直接呼叫 IMU::sensor.init，完美避開 get_sensor 宣告缺失的問題
+  IMU::sensor.init(&sensor_queue);
 
-  // config_sensor(&temp);
-
-  // sensor_config ppg = {ID_PPG, 400, 0};
-  // config_sensor(&ppg);
+  LOG_INF("--- Hardware Initializations Complete ---");
+  // =========================================================================
 
   ret = init_led_service();
   ERR_CHK(ret);
@@ -181,10 +161,6 @@ int main(void) {
 
   ret = init_meow_ctrl_service();
   ERR_CHK(ret);
-
-  // error test
-  // long *a = nullptr;
-  //*a = 10;
 
   return 0;
 }

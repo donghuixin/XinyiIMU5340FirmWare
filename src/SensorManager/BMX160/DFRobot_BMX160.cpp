@@ -43,43 +43,191 @@ bool DFRobot_BMI160::begin() {
   _i2c->begin();
 
   if (scan() == true) {
-    softReset();
+    // 1. 執行軟重置 (Soft Reset)
+    if (!softReset()) {
+      LOG_ERR("Soft reset command failed.");
+      return false;
+    }
+
+    // [關鍵] 軟重置後強制等待，確保晶片內部邏輯重啟完畢 (手冊要求至少 15ms)
+    delay(20);
+
+    // [關鍵] 進行一次 Dummy Read 來喚醒並穩定 I2C 介面
+    uint8_t dummy;
+    readReg(0x7F, &dummy, 1);
+    delay(2);
+
+    uint8_t err_reg = 0;
+    // 清除任何剛開機或重置殘留的錯誤標誌
+    readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+
+    // 2. 喚醒加速度計至 Normal 模式
+    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);
+    delay(55); // 加速度計啟動時間最大 5ms，給予 55ms 非常安全
+
+    // 再次檢查是否有錯誤
+    readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+    if (err_reg) {
+      LOG_DBG("ERR_REG after Accel init: 0x%02X", err_reg);
+    }
+
+    // 3. 喚醒陀螺儀至 Normal 模式
+    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
+    delay(150); // 陀螺儀啟動時間最大 80ms，等待 150ms 非常安全
+
+    // 4. 驗證 PMU 狀態 (檢查是否真正進入 Normal 模式)
+    uint8_t pmu_status = 0;
+
+    // 安全的重試迴圈
+    for (int i = 0; i < 5; i++) {
+      readReg(BMX160_PMU_STATUS_ADDR, &pmu_status, 1);
+
+      // 檢查 Accel (bits 1:0) 和 Gyro (bits 3:2) 是否都是 0b01 (Normal mode)
+      bool accel_ready = ((pmu_status & 0x03) == 0x01);
+      bool gyro_ready = (((pmu_status >> 2) & 0x03) == 0x01);
+
+      if (accel_ready && gyro_ready) {
+        LOG_INF("IMU initialized successfully (PMU Status: 0x%02X)",
+                pmu_status);
+
+        // ==========================================
+        // 5. 喚醒成功後，進行陀螺儀配置
+        // ==========================================
+
+        // 配置陀螺儀 ODR 與頻寬 (暫存器 0x42: BMX160_GYRO_CONFIG_ADDR)
+        // 0x28 代表 ODR = 100Hz, Normal filter (可依您的專案需求修改)
+        writeBmxReg(BMX160_GYRO_CONFIG_ADDR, 0x28);
+        delay(2);
+
+        // 配置陀螺儀量程 Range (暫存器 0x43)
+        // 0x00 代表量程 = ±2000°/s (可依您的專案需求修改)
+        // 若您的程式庫中已有 BMX160_GYRO_RANGE_ADDR 的巨集，也可替換掉 0x43
+        writeBmxReg(0x43, 0x00);
+        delay(2);
+
+        // (如果需要配置加速度計 0x40/0x41，也可以繼續加在這裡)
+
+        return true; // 初始化且配置成功
+      }
+
+      // 如果狀態不對，讀取錯誤代碼並印出警告
+      readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+      LOG_WRN("IMU not ready (PMU: 0x%02X, ERR: 0x%02X), wait and retry...",
+              pmu_status, err_reg);
+
+      // 狀態未達標時先等待，不要瘋狂重發指令以免鎖死 PMU
+      delay(50);
+
+      // 只有在等待兩次都沒反應時，才嘗試重發一次喚醒指令
+      if (i == 2) {
+        LOG_WRN("Re-issuing Gyro normal command...");
+        writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
+        delay(100);
+      }
+    }
+
+    // 如果跑完 5 次迴圈還是失敗，攔截並回傳 false，防止回傳全為 0 的假數據
+    LOG_ERR("Fatal: IMU failed to enter normal mode. Halting initialization.");
+    return false;
+
+  } else {
+    LOG_ERR("I2C Scan failed, device not found on bus.");
+    return false;
+  }
+}
+
+bool DFRobot_BMI160::begin_async() {
+  _i2c->begin();
+
+  if (scan() == true) {
+    if (!softReset())
+      return false;
+
+    uint8_t err_reg = 0;
+    // Clear any pending error flags before starting
+    readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+
+    // Accel normal mode (takes up to 5ms)
     writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);
     delay(50);
-    /* Set gyro to normal mode */
+
+    // Clear any error from changing accel mode
+    readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+    if (err_reg) {
+      LOG_DBG("ERR_REG after Accel init: 0x%02X", err_reg);
+    }
+
+    // Start Gyro and Mag but DO NOT BLOCK with long retries
     writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
-    delay(100);
+    delay(100); // Minimal delay just to let the I2C bus breathe
+    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x19);
+    delay(10);
+
     return true;
-  } else
+  } else {
     return false;
+  }
+}
+
+bool DFRobot_BMI160::check_pmu_status(uint8_t *pmu_val, uint8_t *err_val) {
+  uint8_t pmu = 0, err = 0;
+  readReg(BMX160_PMU_STATUS_ADDR, &pmu, 1);
+  readReg(BMX160_ERROR_REG_ADDR, &err, 1);
+
+  if (pmu_val)
+    *pmu_val = pmu;
+  if (err_val)
+    *err_val = err;
+
+  // PMU GYR (bits 3:2) == 0b01 is normal mode
+  bool gyro_ready = (((pmu >> 2) & 0x03) == 0x01);
+
+  return gyro_ready;
+}
+
+void DFRobot_BMI160::retry_gyro_mag_wakeup() {
+  // Send wake up commands again quickly
+  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
+  // We only sleep a tiny bit here to not block the current thread. The actual
+  // wait time will be handled by the delayed work queue.
+  k_busy_wait(1000); // 1ms
+  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x19);
 }
 
 void DFRobot_BMI160::setLowPower() {
-  softReset();
-  delay(100);
-  // setMagnConf();  // BMI160 has no magnetometer
+  // Ignored for this circuit:
+  // softReset();
   // delay(100);
-  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x12); // Accel low power
-  delay(100);
-  /* Set gyro to fast startup mode */
-  writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x17);
-  delay(100);
-  // writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x1B); // No mag on BMI160
+  // writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x12); // Accel low power
+  // delay(100);
+  // /* Set gyro to fast startup mode */
+  // writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
   // delay(100);
 }
 
 void DFRobot_BMI160::wakeUp() {
   softReset();
-  delay(100);
-  // setMagnConf();  // BMI160 has no magnetometer
-  // delay(100);
+
+  uint8_t err_reg = 0;
+  readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+
   writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11); // Accel normal mode
-  delay(100);
+  delay(10);
+
+  readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+
   /* Set gyro to normal mode */
   writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
   delay(100);
-  // writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x19); // No mag on BMI160
-  // delay(100);
+
+  // Quick fallback check
+  uint8_t pmu_status = 0;
+  readReg(BMX160_PMU_STATUS_ADDR, &pmu_status, 1);
+  if (((pmu_status >> 2) & 0x03) != 0x01) {
+    readReg(BMX160_ERROR_REG_ADDR, &err_reg, 1);
+    LOG_WRN("wakeUp failed to set Gyro normal mode (PMU: 0x%02X, ERR: 0x%02X)",
+            pmu_status, err_reg);
+  }
 }
 
 bool DFRobot_BMI160::softReset() {
@@ -153,6 +301,14 @@ void DFRobot_BMI160::setMagnConf() {
   delay(50);
 }
 
+void DFRobot_BMI160::setGyroPowerMode(uint8_t mode) {
+  writeBmxReg(BMX160_COMMAND_REG_ADDR, mode);
+}
+
+void DFRobot_BMI160::setAccelPowerMode(uint8_t mode) {
+  writeBmxReg(BMX160_COMMAND_REG_ADDR, mode);
+}
+
 void DFRobot_BMI160::setGyroRange(eGyroRange_t bits) {
   switch (bits) {
   case eGyroRange_125DPS:
@@ -222,7 +378,9 @@ void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
 
   if (magn) {
     // No magnetometer on BMI160 — zero out
-    magn->x = 0; magn->y = 0; magn->z = 0;
+    magn->x = 0;
+    magn->y = 0;
+    magn->z = 0;
   }
   if (gyro) {
     x = (int16_t)(((uint16_t)data[1] << 8) | data[0]);
@@ -297,7 +455,8 @@ bool DFRobot_BMI160::scan() {
       found_addr = 0x69;
       break;
     }
-    LOG_DBG("IMU scan attempt %d failed (ret_68=%d, ret_69=%d)", i, ret_68, ret_69);
+    LOG_DBG("IMU scan attempt %d failed (ret_68=%d, ret_69=%d)", i, ret_68,
+            ret_69);
     k_usleep(10000); // 10ms wait
   }
 
