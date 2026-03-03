@@ -12,6 +12,8 @@
  */
 #include "DFRobot_BMX160.h"
 
+#include <stdio.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(BMI160_DFR, CONFIG_MAIN_LOG_LEVEL);
 
@@ -41,17 +43,71 @@ const uint8_t int_mask_lookup_table[13] = {BMX160_INT1_SLOPE_MASK,
 
 bool DFRobot_BMI160::begin() {
   _i2c->begin();
+  printk("[GYRDBG] bmi160 begin enter\n");
+  LOG_ERR("[GYRDBG] bmi160 begin enter");
 
   if (scan() == true) {
+    debugTraceErrPmu("scan_ok");
     debugDumpRegisters("begin:pre_reset");
     softReset();
+    debugTraceErrPmu("after_soft_reset");
     debugDumpRegisters("begin:post_reset");
-    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);
-    delay(50);
+    /* Datasheet sequence: ACC normal -> wait, then GYR normal -> wait */
+    writeBmxReg(BMX160_COMMAND_REG_ADDR, BMX160_ACCEL_NORMAL_MODE);
+    debugTraceErrPmu("cmd_0x11_acc_normal");
+    delay(5);
+
+    uint8_t pmu = 0;
+    bool acc_ready = false;
+    for (int i = 0; i < 20; i++) {
+      readReg(0x03, &pmu, 1); /* PMU_STATUS */
+      if ((pmu & 0x30) == 0x10) { /* ACC normal */
+        acc_ready = true;
+        break;
+      }
+      k_msleep(2);
+    }
+    LOG_INF("ACC mode check: PMU=0x%02X acc_mode=%u gyr_mode=%u", pmu,
+            (pmu >> 4) & 0x03, (pmu >> 2) & 0x03);
+    debugTraceErrPmu("after_acc_normal_wait");
+
     debugDumpRegisters("begin:after_accel_normal");
-    /* Set gyro to normal mode */
-    writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x15);
-    delay(100);
+    delay(2);
+    /* Set gyro to normal mode.
+     * Datasheet: do not queue extra CMD writes while previous CMD is pending. */
+    bool gyro_ready = false;
+    for (int attempt = 0; attempt < 1 && !gyro_ready; attempt++) {
+      writeBmxReg(BMX160_COMMAND_REG_ADDR, BMX160_GYRO_NORMAL_MODE);
+      char stage[32];
+      snprintf(stage, sizeof(stage), "cmd_0x15_try%d", attempt + 1);
+      debugTraceErrPmu(stage);
+      for (int i = 0; i < 70; i++) { /* up to ~140ms */
+        readReg(0x03, &pmu, 1);       /* PMU_STATUS */
+        if ((pmu & 0x0C) == 0x04) {   /* GYR normal */
+          gyro_ready = true;
+          break;
+        }
+        k_msleep(2);
+      }
+      if (!gyro_ready) {
+        LOG_WRN("GYR normal cmd attempt %d failed: PMU=0x%02X (acc_mode=%u "
+                "gyr_mode=%u)",
+                attempt + 1, pmu, (pmu >> 4) & 0x03, (pmu >> 2) & 0x03);
+      }
+      snprintf(stage, sizeof(stage), "after_0x15_try%d", attempt + 1);
+      debugTraceErrPmu(stage);
+    }
+
+    if (!acc_ready) {
+      LOG_WRN("ACC did not enter normal mode");
+    }
+    if (!gyro_ready) {
+      LOG_ERR("GYR failed to enter normal mode in begin()");
+      // return false;
+    }
+
+    delay(5);
+    debugTraceErrPmu("begin_done");
     debugDumpRegisters("begin:after_gyro_normal");
     return true;
   } else
@@ -81,6 +137,40 @@ void DFRobot_BMI160::debugDumpRegisters(const char *tag) {
           "ACC_CFG=0x%02X ACC_RNG=0x%02X GYR_CFG=0x%02X GYR_RNG=0x%02X",
           tag ? tag : "dump", chip_id, err, pmu, status, acc_cfg, acc_rng,
           gyr_cfg, gyr_rng);
+}
+
+void DFRobot_BMI160::debugTraceErrPmu(const char *stage) {
+  static bool first = true;
+  static uint8_t last_err = 0xFF;
+  static uint8_t last_pmu = 0xFF;
+
+  uint8_t err = 0;
+  uint8_t pmu = 0;
+  readReg(BMX160_ERROR_REG_ADDR, &err, 1);
+  readReg(0x03, &pmu, 1); /* PMU_STATUS */
+
+  LOG_WRN("[TRACE:%s] ERR=0x%02X PMU=0x%02X [mapA acc(5:4)=%u gyr(3:2)=%u] "
+          "[mapB gyr(5:4)=%u acc(3:2)=%u]",
+          stage, err, pmu, (pmu >> 4) & 0x03, (pmu >> 2) & 0x03,
+          (pmu >> 4) & 0x03, (pmu >> 2) & 0x03);
+  printk("[TRACE:%s] ERR=0x%02X PMU=0x%02X a54=%u g32=%u\n", stage, err, pmu,
+         (pmu >> 4) & 0x03, (pmu >> 2) & 0x03);
+
+  if (first || err != last_err) {
+    LOG_WRN("[TRACE:%s] ERR transition: 0x%02X -> 0x%02X", stage, last_err,
+            err);
+    LOG_WRN("[TRACE:%s] ERR bits: fatal(bit0)=%u code(bits3:1)=0x%X", stage,
+            err & 0x1, (err >> 1) & 0x7);
+  }
+
+  if (first || pmu != last_pmu) {
+    LOG_INF("[TRACE:%s] PMU transition: 0x%02X -> 0x%02X", stage, last_pmu,
+            pmu);
+  }
+
+  first = false;
+  last_err = err;
+  last_pmu = pmu;
 }
 
 void DFRobot_BMI160::setLowPower() {
@@ -209,6 +299,7 @@ void DFRobot_BMI160::setGyroRange(eGyroRange_t bits) {
   uint8_t readback = 0;
   readReg(BMX160_GYRO_RANGE_ADDR, &readback, 1);
   LOG_INF("Set gyro range reg=0x%02X readback=0x%02X", bits, readback);
+  debugTraceErrPmu("after_gyro_range");
 }
 
 void DFRobot_BMI160::setAccelRange(eAccelRange_t bits) {
@@ -231,6 +322,7 @@ void DFRobot_BMI160::setAccelRange(eAccelRange_t bits) {
   }
 
   writeBmxReg(BMX160_ACCEL_RANGE_ADDR, bits);
+  debugTraceErrPmu("after_accel_range");
 }
 
 void DFRobot_BMI160::setMagnODR(uint8_t val) {
@@ -238,6 +330,30 @@ void DFRobot_BMI160::setMagnODR(uint8_t val) {
 }
 
 void DFRobot_BMI160::setGyroODR(uint8_t val) {
+  debugTraceErrPmu("before_gyro_odr");
+  uint8_t pmu = 0;
+  readReg(0x03, &pmu, 1); /* PMU_STATUS */
+  if ((pmu & 0x0C) != 0x04) { /* GYR not in normal mode */
+    LOG_WRN("GYR not normal before ODR set, PMU=0x%02X. Forcing normal mode.",
+            pmu);
+    writeBmxReg(BMX160_COMMAND_REG_ADDR, BMX160_GYRO_NORMAL_MODE);
+    for (int i = 0; i < 70; i++) { /* up to ~140ms */
+      readReg(0x03, &pmu, 1);
+      if ((pmu & 0x0C) == 0x04) {
+        break;
+      }
+      k_msleep(2);
+    }
+    LOG_INF("After forcing GYR normal: PMU=0x%02X (acc_mode=%u gyr_mode=%u)",
+            pmu, (pmu >> 4) & 0x03, (pmu >> 2) & 0x03);
+    debugTraceErrPmu("after_force_gyro_normal");
+    if ((pmu & 0x0C) != 0x04) {
+      LOG_ERR("GYR still not normal after force attempt, PMU=0x%02X", pmu);
+      printk("[GYRDBG] GYR still not normal, PMU=0x%02X\n", pmu);
+      // return;
+    }
+  }
+
   uint8_t current = 0;
   readReg(BMX160_GYRO_CONFIG_ADDR, &current, 1);
   uint8_t updated =
@@ -247,9 +363,11 @@ void DFRobot_BMI160::setGyroODR(uint8_t val) {
   readReg(BMX160_GYRO_CONFIG_ADDR, &readback, 1);
   LOG_INF("Set gyro ODR val=0x%02X cfg old=0x%02X new=0x%02X rb=0x%02X", val,
           current, updated, readback);
+  debugTraceErrPmu("after_gyro_odr");
 }
 
 void DFRobot_BMI160::setAccelODR(uint8_t val) {
+  debugTraceErrPmu("before_accel_odr");
   uint8_t current = 0;
   readReg(BMX160_ACCEL_CONFIG_ADDR, &current, 1);
   uint8_t updated =
@@ -259,6 +377,7 @@ void DFRobot_BMI160::setAccelODR(uint8_t val) {
   readReg(BMX160_ACCEL_CONFIG_ADDR, &readback, 1);
   LOG_INF("Set accel ODR val=0x%02X cfg old=0x%02X new=0x%02X rb=0x%02X", val,
           current, updated, readback);
+  debugTraceErrPmu("after_accel_odr");
 }
 
 void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
@@ -322,6 +441,14 @@ void DFRobot_BMI160::getAllData(sBmx160SensorData_t *magn,
     readReg(BMX160_ERROR_REG_ADDR, &err, 1);
     readReg(BMX160_GYRO_CONFIG_ADDR, &gyr_cfg, 1);
     readReg(BMX160_GYRO_RANGE_ADDR, &gyr_rng, 1);
+
+    static uint8_t last_err = 0xFF;
+    if (err != last_err) {
+      LOG_WRN("BMI160 ERR changed: 0x%02X (bit0=%u bit1=%u bit2=%u bit3=%u)",
+              err, err & 0x1, (err >> 1) & 0x1, (err >> 2) & 0x1,
+              (err >> 3) & 0x1);
+      last_err = err;
+    }
 
     LOG_INF("IMU sample#%u raw A[%d,%d,%d] G[%d,%d,%d] zero_streak=%u "
             "PMU=0x%02X ERR=0x%02X GCFG=0x%02X GRNG=0x%02X",

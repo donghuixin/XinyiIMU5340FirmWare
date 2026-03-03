@@ -1,0 +1,1362 @@
+--- idx 308 ---
+a
+l
+t
+ria
+x
+i
+a
+l
+acc
+el
+er
+omet
+er
+6 bi
+t
+di
+g
+--- idx 606 ---
+t
+i
+m
+e
+st
+amps 
+f
+or
+accu
+r
+a
+t
+e 
+sen
+s
+or
+da
+--- idx 2279 ---
+on
+of
+FI
+FO
+spa
+ce
+f
+or
+acce
+l
+er
+omet
+er
+g
+y
+r
+osco
+--- idx 4852 ---
+G
+I
+S
+T
+E
+R
+X
+E
+CMD
+D
+I
+G
+I
+T
+A
+L I
+N
+--- idx 13129 ---
+t
+con
+sumpt
+i
+on
+i
+n µ
+A
+acco
+r
+di
+ng
+t
+o 
+a
+ccel
+g
+--- idx 14116 ---
+o
+nsu
+m
+pt
+i
+on
+i
+n 
+acce
+l
+er
+omet
+er
+l
+ow
+po
+w
+--- idx 14415 ---
+t
+con
+sumpt
+i
+on
+i
+n µ
+A
+acco
+r
+di
+ng
+t
+o 
+nu
+m
+be
+--- idx 14462 ---
+i
+n suspe
+nd
+m
+od
+e
+a
+nd
+acce
+l
+er
+omet
+er
+i
+n lo
+w
+po
+--- idx 15787 ---
+m
+ag
+ne
+t
+omet
+er
+a
+nd
+acce
+l
+er
+omet
+er
+po
+w
+er
+m
+--- idx 17322 ---
+ha
+r
+dw
+a
+r
+e.
+T
+he
+acco
+r
+di
+ng
+t
+i
+m
+e st
+a
+--- idx 17494 ---
+m
+et
+er
+s:
+a
+cc_b
+w
+p
+acc
+o
+d
+r
+a
+nd
+acc_
+u
+s
+--- idx 17500 ---
+w
+p
+acc
+o
+d
+r
+a
+nd
+acc_
+u
+s
+T
+he
+g
+y
+r
+osco
+--- idx 17759 ---
+m
+et
+er
+s:
+a
+cc_b
+w
+p
+acc
+o
+d
+r
+a
+nd
+acc_
+u
+s
+--- idx 17765 ---
+w
+p
+acc
+o
+d
+r
+a
+nd
+acc_
+u
+s
+in
+R
+e
+g
+i
+st
+--- idx 17895 ---
+sho
+ul
+d 
+be
+di
+sa
+bl
+ed
+acc
+us=
+0b
+I
+n 
+t
+hi
+s 
+con
+--- idx 18145 ---
+When
+a
+cc
+u
+s=
+0b
+t
+he
+acc_
+b
+w
+p
+p
+a
+r
+amet
+er
+--- idx 19223 ---
+u
+st
+be
+en
+a
+bl
+e
+d 
+acc
+us=
+0b
+I
+n 
+t
+hi
+s 
+con
+--- idx 19245 ---
+t
+i
+on
+m
+od
+e,
+t
+he
+acce
+l
+er
+omet
+er
+r
+eg
+ul
+a
+--- idx 19743 ---
+e: 
+When
+un
+de
+r
+sampl
+i
+ng
+acc
+u
+s
+0b
+i
+n
+R
+eg
+i
+--- idx 19933 ---
+g
+ur
+ed
+t
+hr
+ou
+g
+h 
+acc
+f
+i
+f
+o
+f
+i
+l
+t
+--- idx 30706 ---
+e(t
+fr-FR
+fr-FR
+de-DE
+d
+fr-FR
+t
+fr-FR
+acc(
+fr-FR
+t
+fr-FR
+fr-FR
+de-DE
+d
+fr-FR
+t
+--- idx 32109 ---
+C
+O
+N
+F
+a
+nd
+t
+he
+acco
+r
+di
+ng
+st
+ep
+cou
+nt
+er
+--- idx 32600 ---
+he
+t
+w
+o 
+succ
+essi
+v
+e 
+acce
+l
+er
+a
+t
+i
+on
+va
+l
+--- idx 34459 ---
+r
+ker
+T
+he
+m
+ea
+sur
+ed
+acce
+l
+er
+a
+t
+i
+on
+v
+ect
+--- idx 35647 ---
+|a
+c
+c
+y
+a
+c
+c
+_x
+acc_
+y
+x
+po
+r
+t
+r
+a
+i
+--- idx 35670 ---
+|a
+c
+c
+y
+a
+c
+c
+_x
+acc_
+y
+B
+M
+I
+D
+a
+t
+a sheet
+--- idx 36571 ---
+hy
+ph
+i
+hy
+|a
+c
+c
+y
+|acc
+_x
+hy
+st
+a
+c
+c
+_x
+x
+--- idx 36598 ---
+hy
+ph
+i
+hy
+|a
+c
+c
+y
+|acc
+_x
+hy
+st
+a
+c
+c
+_x
+x
+--- idx 37213 ---
+de
+ph
+i
+a
+cc
+z
+m
+g (
+acc
+z
+m
+g
+a
+nd
+a
+cc
+z
+--- idx 37596 ---
+en
+t
+a
+t
+i
+on
+a
+nd
+acc 
+5g
+f
+or
+m
+s\
+Fo
+r
+a
+--- idx 37958 ---
+T
+a
+c
+c
+_x
+S
+A
+T
+acc
+y
+S
+A
+T
+acc
+y
+S
+A
+--- idx 37963 ---
+S
+A
+T
+acc
+y
+S
+A
+T
+acc
+y
+S
+A
+T
+w
+he
+r
+e:
+--- idx 39369 ---
+A
+T
+a
+cc
+y
+S
+A
+T
+acc
+y
+S
+A
+T
+A
+N
+D
+no
+--- idx 39458 ---
+A
+T
+a
+cc
+y
+S
+A
+T
+acc
+y
+S
+A
+T
+O
+R
+N
+O
+--- idx 40247 ---
+bso
+l
+ut
+e 
+va
+l
+ue
+of
+acce
+l
+er
+a
+t
+i
+on
+da
+t
+--- idx 40453 ---
+t
+he
+si
+g
+n
+of
+t
+he
+acce
+l
+er
+a
+t
+i
+on
+va
+l
+--- idx 43743 ---
+i
+s
+con
+f
+i
+g
+ur
+ed
+acco
+r
+di
+ng
+l
+y
+an
+d no 
+w
+--- idx 45603 ---
+r
+H
+z;
+a
+cc
+b
+w
+p=
+acc
+u
+s=
+O
+t
+he
+r
+w
+i
+--- idx 45675 ---
+va
+l
+ue
+b0
+t
+o 
+t
+he
+acc
+sel
+f
+t
+est
+e
+n
+a
+b
+--- idx 49208 ---
+a
+ckup
+w
+hi
+c
+h
+i
+s 
+acce
+ssi
+bl
+e by
+t
+he
+use
+r
+T
+--- idx 52134 ---
+t
+he
+FI
+FO
+i
+s 
+no
+t
+acce
+s
+s
+i
+bl
+e.
+Fo
+r
+r
+--- idx 57485 ---
+r
+v
+ed
+R
+e
+a
+d bur
+st
+acce
+ss 
+m
+ust
+be
+use
+d
+t
+he
+--- idx 58215 ---
+f
+i
+g
+ur
+a
+t
+i
+on
+acc
+us=
+a
+nd
+av
+er
+ag
+i
+n
+--- idx 58372 ---
+ese
+r
+v
+ed
+en-GB
+en-GB
+en-GB
+When
+acc
+u
+s
+po
+w
+er
+m
+od
+e,
+--- idx 58406 ---
+l
+m
+od
+e.
+I
+f
+t
+he
+acc
+u
+s
+po
+w
+er
+m
+od
+e
+--- idx 60927 ---
+ng
+r
+a
+t
+i
+os of
+t
+he
+acce
+l
+an
+d 
+g
+y
+r
+o da
+t
+--- idx 62839 ---
+t
+omet
+er
+r
+eg
+i
+st
+er
+acce
+ss
+on
+M
+A
+G
+I
+F
+r
+--- idx 70584 ---
+sampl
+e 
+di
+f
+f
+er
+en
+ce
+acco
+r
+di
+ng
+t
+o
+i
+nt
+a
+--- idx 77308 ---
+set
+t
+o 
+va
+l
+u
+e
+x2C
+acc
+od
+r
+0H
+z;
+a
+cc_
+b
+w
+--- idx 89335 ---
+i
+ce
+I
+C
+w
+r
+i
+t
+e acc
+es
+s
+I
+C
+w
+r
+i
+t
+--- idx 89668 ---
+es
+s:
+I
+C
+r
+e
+a
+d 
+acce
+ss
+a
+l
+so c
+a
+n
+be
+use
+--- idx 90821 ---
+pl
+e of
+a
+n I
+C
+r
+ea
+d
+acce
+ss 
+r
+ea
+di
+n
+g
+g
+y
+--- idx 93412 ---
+a
+t
+i
+on
+pr
+oce
+ssor
+ca
+n access
+e
+v
+er
+y 
+r
+eg
+i
+st
+--- idx 105780 ---
+4. Pin-out and Connection diagrams
+4.1 Pin-out
+4.3.5 Primary I2C and secondary 3-wire SPI as OIS interface
+3. Digital interfaces
+3.1 Interfaces
+3.3.2 Camera module connected to secondary interface for OIS
+2. Functional Description
+2.1 Block diagram
+2.11.38 Register (0x7E\
+2.11  Register Map
+2.11.37 Register (0x7A-0x7B\
+2.11.36 Register (0x78-0x79\
+2.11.35 Register (0x71-0x77\
+2.11.34 Register (0x70\
+2.11.33 Register (0x6D\
+2.11.32 Register (0x6C\
+2.11.31 Register (0x6B\
+--- idx 105806 ---
+2.11.21 Register (0x54\
+2.11.20 Register (0x53\
+2.11.19 Register (0x50-0x52\
+2.11.18 Register (0x4B-0x4F\
+2.11.17 Register (0x46-0x47\
+2.11.16 Register (0x45\
+2.11.15 Register (0x44\
+2.11.14 Register (0x43\
+2.11.13 Register (0x42\
+2.11.12 Register (0x41\
+2.11.11 Register (0x40\
+2.11.10 Register (0x24\
+2.11.9 Register (0x22-0x23\
+2.11.8 Register (0x20-0x21\
+2.11.7 Register (0x1C-0x1F\
+2.11.6 Register (0x1B\
+2.11.5 Register (0x18-0x1A\
+--- idx 105808 ---
+2.11.19 Register (0x50-0x52\
+2.11.18 Register (0x4B-0x4F\
+2.11.17 Register (0x46-0x47\
+2.11.16 Register (0x45\
+2.11.15 Register (0x44\
+2.11.14 Register (0x43\
+2.11.13 Register (0x42\
+2.11.12 Register (0x41\
+2.11.11 Register (0x40\
+2.11.10 Register (0x24\
+2.11.9 Register (0x22-0x23\
+2.11.8 Register (0x20-0x21\
+2.11.7 Register (0x1C-0x1F\
+2.11.6 Register (0x1B\
+2.11.5 Register (0x18-0x1A\
+2.11.4 Register (0x04-0x17\
+2.11.3 Register (0x03\
+--- idx 105816 ---
+2.11.11 Register (0x40\
+2.11.10 Register (0x24\
+2.11.9 Register (0x22-0x23\
+2.11.8 Register (0x20-0x21\
+2.11.7 Register (0x1C-0x1F\
+2.11.6 Register (0x1B\
+2.11.5 Register (0x18-0x1A\
+2.11.4 Register (0x04-0x17\
+2.11.3 Register (0x03\
+2.11.2 Register (0x02\
+2.11.1 Register (0x00\
+2.10 Non-Volatile Memory
+2.9 Offset Compensation
+2.9.1 Fast offset compensation
+2.9.3 Inline calibration
+2.8 Device self test
+2.8.1 Self-test accelerometer
+--- idx 105817 ---
+2.11.10 Register (0x24\
+2.11.9 Register (0x22-0x23\
+2.11.8 Register (0x20-0x21\
+2.11.7 Register (0x1C-0x1F\
+2.11.6 Register (0x1B\
+2.11.5 Register (0x18-0x1A\
+2.11.4 Register (0x04-0x17\
+2.11.3 Register (0x03\
+2.11.2 Register (0x02\
+2.11.1 Register (0x00\
+2.10 Non-Volatile Memory
+2.9 Offset Compensation
+2.9.1 Fast offset compensation
+2.9.3 Inline calibration
+2.8 Device self test
+2.8.1 Self-test accelerometer
+2.8.2 Self-test gyroscope
+--- idx 105824 ---
+2.11.3 Register (0x03\
+2.11.2 Register (0x02\
+2.11.1 Register (0x00\
+2.10 Non-Volatile Memory
+2.9 Offset Compensation
+2.9.1 Fast offset compensation
+2.9.3 Inline calibration
+2.8 Device self test
+2.8.1 Self-test accelerometer
+2.8.2 Self-test gyroscope
+2.7 Step Counter
+2.6 Interrupt Controller
+2.6.1 Any-motion detection (Accel\
+2.6.12 FIFO Interrupts (Accel, Gyro, and external sensors\
+2.5 FIFO
+2.5.1 FIFO Frames
+2.5.2.6 Error Handling
+--- idx 105825 ---
+2.11.2 Register (0x02\
+2.11.1 Register (0x00\
+2.10 Non-Volatile Memory
+2.9 Offset Compensation
+2.9.1 Fast offset compensation
+2.9.3 Inline calibration
+2.8 Device self test
+2.8.1 Self-test accelerometer
+2.8.2 Self-test gyroscope
+2.7 Step Counter
+2.6 Interrupt Controller
+2.6.1 Any-motion detection (Accel\
+2.6.12 FIFO Interrupts (Accel, Gyro, and external sensors\
+2.5 FIFO
+2.5.1 FIFO Frames
+2.5.2.6 Error Handling
+2.4 Data Processing
+--- idx 105839 ---
+2.5.1 FIFO Frames
+2.5.2.6 Error Handling
+2.4 Data Processing
+2.4.1 Data Processing Accelerometer
+2.4.2.1 Gyroscope data processing for normal power mode
+2.3 Sensor Timing and Data synchronization
+2.3.1 Sensor Time
+2.3.2 Data synchronization
+2.2 Power modes
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+--- idx 105840 ---
+2.5.2.6 Error Handling
+2.4 Data Processing
+2.4.1 Data Processing Accelerometer
+2.4.2.1 Gyroscope data processing for normal power mode
+2.3 Sensor Timing and Data synchronization
+2.3.1 Sensor Time
+2.3.2 Data synchronization
+2.2 Power modes
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+2.2.2 Fast start-up mode (gyroscope only \
+--- idx 105842 ---
+2.4.1 Data Processing Accelerometer
+2.4.2.1 Gyroscope data processing for normal power mode
+2.3 Sensor Timing and Data synchronization
+2.3.1 Sensor Time
+2.3.2 Data synchronization
+2.2 Power modes
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+2.2.2 Fast start-up mode (gyroscope only \
+2.4.2 Data Processing Gyroscope
+2.4.1.1 Accelerometer data processing for normal power mode
+--- idx 105843 ---
+2.4.2.1 Gyroscope data processing for normal power mode
+2.3 Sensor Timing and Data synchronization
+2.3.1 Sensor Time
+2.3.2 Data synchronization
+2.2 Power modes
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+2.2.2 Fast start-up mode (gyroscope only \
+2.4.2 Data Processing Gyroscope
+2.4.1.1 Accelerometer data processing for normal power mode
+2.4.1.2 Accelerometer data processing for low power mode
+--- idx 105844 ---
+2.3 Sensor Timing and Data synchronization
+2.3.1 Sensor Time
+2.3.2 Data synchronization
+2.2 Power modes
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+2.2.2 Fast start-up mode (gyroscope only \
+2.4.2 Data Processing Gyroscope
+2.4.1.1 Accelerometer data processing for normal power mode
+2.4.1.2 Accelerometer data processing for low power mode
+2.5.2 FIFO conditions and details
+--- idx 105845 ---
+2.3.1 Sensor Time
+2.3.2 Data synchronization
+2.2 Power modes
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+2.2.2 Fast start-up mode (gyroscope only \
+2.4.2 Data Processing Gyroscope
+2.4.1.1 Accelerometer data processing for normal power mode
+2.4.1.2 Accelerometer data processing for low power mode
+2.5.2 FIFO conditions and details
+2.5.2.5 FIFO Reset
+--- idx 105846 ---
+2.3.2 Data synchronization
+2.2 Power modes
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+2.2.2 Fast start-up mode (gyroscope only \
+2.4.2 Data Processing Gyroscope
+2.4.1.1 Accelerometer data processing for normal power mode
+2.4.1.2 Accelerometer data processing for low power mode
+2.5.2 FIFO conditions and details
+2.5.2.5 FIFO Reset
+2.5.2.4 FIFO synchronization with external events
+--- idx 105848 ---
+2.2.1 Suspend mode (accelerometer and gyroscope\
+2.2.5.2 Power management with external geomagnetic sensor
+2.2.5 PMU (Power Management Unit\
+2.2.5.1 Automatic gyroscope power mode changes
+2.2.4 Low power mode (accelerometer only\
+2.2.4.1 Power Consumption in accelerometer low power mode
+2.2.4.2 Noise of accelerometer in low power mode
+2.2.3 Transitions between power modes
+2.2.2 Fast start-up mode (gyroscope only \
+2.4.2 Data Processing Gyroscope
+2.4.1.1 Accelerometer data processing for normal power mode
+2.4.1.2 Accelerometer data processing for low power mode
+2.5.2 FIFO conditions and details
+2.5.2.5 FIFO Reset
+2.5.2.4 FIFO synchronization with external events
+2.5.2.3 Partial frame reads
+2.5.2.2 Overreads
+--- idx 105868 ---
+Control frame (fh_mode=0b01\
+Sensortime frame (fh_parm=0b001\
+Skip frame (fh_parm=0b000\
+2.5.1.5 Frame types
+Regular frame (fh_mode=0b10\
+2.5.1.4 Data bytes Format
+2.5.1.3 Header byte format
+2.5.1.2 Frame format
+2.6.11 PMU Trigger (Gyro\
+2.6.10 Data Ready Detection (Accel, Gyro and external sensors\
+2.6.9 Slow-Motion Alert / No-Motion Interrupt (Accel\
+2.6.9.1 Register slo_no_mot_dur
+2.6.9.2 Register slo_no_mot_th
+2.6.8 High-g detection (Accel\
+2.6.7 Low-g / free-fall Detection (Accel\
+2.6.6 Flat Detection (Accel\
+2.6.5 Orientation recognition (Accel\
+--- idx 105953 ---
+ur
+time
+time
+time
+slope(t
+t
+t
+t
+acc(t
+acc(t
+acc(t
+t\
+slope
+INT
+counter
+value
+latched
+--- idx 105954 ---
+time
+time
+time
+slope(t
+t
+t
+t
+acc(t
+acc(t
+acc(t
+t\
+slope
+INT
+counter
+value
+latched
+no
+--- idx 105955 ---
+time
+time
+slope(t
+t
+t
+t
+acc(t
+acc(t
+acc(t
+t\
+slope
+INT
+counter
+value
+latched
+no
+n
+--- idx 106011 ---
+time
+time
+slope(t
+d
+t
+t
+d
+t
+acc(t
+acc(t
+acc(t
+d
+t\
+slope
+­þoO"°"DrÊè(W&µ ¬s"EÅdEJ*Ã@JZ9Ç"òFö%à²fUà²Æ*äT2^$¯RRP¤+`TD¾è$E°Ñi-HXD1­"'¦F8Þ51U¯(ø"ÂZ¥kIBq~4ÉÞì³.&TL$&ÄPVñi­6YÎOÄí¢¬XóN|0ø.Ø¬$`8Ñ	Áw©nµtZÍeÙ"*`b(«IYS6X­¬Õ¢>á®Äf²}h!¦²ÊH}áÌ:­eÖ|w@¢¬EµXqa-:aßYeXK±¬ÅÚUkJpá\0°ÌÆ	ö­×9(f-î *°Ã¨ÅüD§ûG£ä`-°ìëX%o¨nÔgAð
+µ&ÖTJQ
+
+ÌG»r7&xÒ
+xh'2óÈÈ
+Z y/7&1rqõå½àÇOÂùc{
+íîeþÿ%¢»ÎéÚÃ¹/w]¤ÇñMR|¹½ÙÄuâZKõzLk¨.Îi3ós`ZÏi»©+[´Ó³jÅS'¨§yG®çXñ´ÄYvXb¯õæ0ÏqÞéÄµó±çÀxawâÀZìæ90!÷^"hõð´Ng£~ðy&(¢DSÌ%7EÉ«üÑ
+--- idx 106012 ---
+time
+slope(t
+d
+t
+t
+d
+t
+acc(t
+acc(t
+acc(t
+d
+t\
+slope
+­þoO"°"DrÊè(W&µ ¬s"EÅdEJ*Ã@JZ9Ç"òFö%à²fUà²Æ*äT2^$¯RRP¤+`TD¾è$E°Ñi-HXD1­"'¦F8Þ51U¯(ø"ÂZ¥kIBq~4ÉÞì³.&TL$&ÄPVñi­6YÎOÄí¢¬XóN|0ø.Ø¬$`8Ñ	Áw©nµtZÍeÙ"*`b(«IYS6X­¬Õ¢>á®Äf²}h!¦²ÊH}áÌ:­eÖ|w@¢¬EµXqa-:aßYeXK±¬ÅÚUkJpá\0°ÌÆ	ö­×9(f-î *°Ã¨ÅüD§ûG£ä`-°ìëX%o¨nÔgAð
+µ&ÖTJQ
+
+ÌG»r7&xÒ
+xh'2óÈÈ
+Z y/7&1rqõå½àÇOÂùc{
+íîeþÿ%¢»ÎéÚÃ¹/w]¤ÇñMR|¹½ÙÄuâZKõzLk¨.Îi3ós`ZÏi»©+[´Ó³jÅS'¨§yG®çXñ´ÄYvXb¯õæ0ÏqÞéÄµó±çÀxawâÀZìæ90!÷^"hõð´Ng£~ðy&(¢DSÌ%7EÉ«üÑ
+INT
+--- idx 106013 ---
+slope(t
+d
+t
+t
+d
+t
+acc(t
+acc(t
+acc(t
+d
+t\
+slope
+­þoO"°"DrÊè(W&µ ¬s"EÅdEJ*Ã@JZ9Ç"òFö%à²fUà²Æ*äT2^$¯RRP¤+`TD¾è$E°Ñi-HXD1­"'¦F8Þ51U¯(ø"ÂZ¥kIBq~4ÉÞì³.&TL$&ÄPVñi­6YÎOÄí¢¬XóN|0ø.Ø¬$`8Ñ	Áw©nµtZÍeÙ"*`b(«IYS6X­¬Õ¢>á®Äf²}h!¦²ÊH}áÌ:­eÖ|w@¢¬EµXqa-:aßYeXK±¬ÅÚUkJpá\0°ÌÆ	ö­×9(f-î *°Ã¨ÅüD§ûG£ä`-°ìëX%o¨nÔgAð
+µ&ÖTJQ
+
+ÌG»r7&xÒ
+xh'2óÈÈ
+Z y/7&1rqõå½àÇOÂùc{
+íîeþÿ%¢»ÎéÚÃ¹/w]¤ÇñMR|¹½ÙÄuâZKõzLk¨.Îi3ós`ZÏi»©+[´Ó³jÅS'¨§yG®çXñ´ÄYvXb¯õæ0ÏqÞéÄµó±çÀxawâÀZìæ90!÷^"hõð´Ng£~ðy&(¢DSÌ%7EÉ«üÑ
+INT
+anym

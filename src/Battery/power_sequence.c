@@ -13,7 +13,8 @@ LOG_MODULE_REGISTER(power_sequence, LOG_LEVEL_INF);
 #define BQ25120A_LS_LDO_CTRL_REG 0x07
 #define BQ25120A_LS_LDO_CTRL_VAL 0xE4
 
-/* P0.27 – LSCTRL: enable BQ25120A load-switch output / wake from ship mode */
+/* P0.14 – LSCTRL: enable BQ25120A load-switch output / wake from ship mode
+ * P0.17 – CD#: wake BQ25120A from Hi-Z / ship mode (directly in DTS as cd-gpios) */
 #define LS_EN_NODE DT_CHILD(DT_NODELABEL(bq25120a), load_switch)
 static const struct gpio_dt_spec ls_en_gpio =
 	GPIO_DT_SPEC_GET(LS_EN_NODE, enable_gpios);
@@ -33,7 +34,7 @@ void force_load_switches_on(void)
 
 	ret = gpio_pin_configure_dt(&ls_en_gpio, GPIO_OUTPUT_ACTIVE);
 	if (ret) {
-		LOG_ERR("Failed to configure LS enable (P0.27): %d", ret);
+		LOG_ERR("Failed to configure LS enable (P0.14): %d", ret);
 		return;
 	}
 
@@ -52,7 +53,7 @@ void force_load_switches_on(void)
 		return;
 	}
 
-	LOG_INF("Load-switch enabled (P0.27 HIGH, EN_LS=1)");
+	LOG_INF("Load-switch enabled (P0.14 HIGH, EN_LS=1)");
 
 	/* Allow rails to stabilise (datasheet: 600 µs, add margin) */
 	k_msleep(50);

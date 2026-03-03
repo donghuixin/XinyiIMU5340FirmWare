@@ -1054,6 +1054,7 @@ class DFRobot_BMI160{
     void wakeUp();
     
   private:
+    void debugTraceErrPmu(const char *stage);
 
     /**
      * @fn softReset

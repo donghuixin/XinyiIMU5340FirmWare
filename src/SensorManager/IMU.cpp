@@ -83,6 +83,8 @@ void IMU::sensor_timer_handler(struct k_timer *dummy) {
 };
 
 bool IMU::init(struct k_msgq *queue) {
+  printk("[GYRDBG] IMU::init enter\n");
+  LOG_ERR("[GYRDBG] IMU::init enter");
   if (!_active) {
     _active = true;
     /* Wait for load-switch rails to stabilise; power_sequence runs at
@@ -96,6 +98,7 @@ bool IMU::init(struct k_msgq *queue) {
     _active = false;
     return false;
   }
+  LOG_ERR("[GYRDBG] IMU::init imu.begin ok");
 
   // ===== 传感器量程配置 =====
   // 1. 加速度计：±16G
@@ -117,6 +120,8 @@ void IMU::start(int sample_rate_idx) {
   if (!_active)
     return;
 
+  printk("[GYRDBG] IMU::start idx=%d\n", sample_rate_idx);
+  LOG_ERR("[GYRDBG] IMU::start idx=%d", sample_rate_idx);
   LOG_INF("IMU start called: sample_rate_idx=%d reg=0x%02X true_hz=%.1f",
           sample_rate_idx, sample_rates.reg_vals[sample_rate_idx],
           (double)sample_rates.true_sample_rates[sample_rate_idx]);
@@ -125,7 +130,7 @@ void IMU::start(int sample_rate_idx) {
 
   imu.setAccelODR(sample_rates.reg_vals[sample_rate_idx]);
   imu.setGyroODR(sample_rates.reg_vals[sample_rate_idx]);
-  imu.setMagnODR(sample_rates.reg_vals[sample_rate_idx]);
+  /* BMI160 is 6-axis (no onboard magnetometer), skip MAG ODR writes. */
   imu.debugDumpRegisters("imu:start_after_odr");
 
   _running = true;

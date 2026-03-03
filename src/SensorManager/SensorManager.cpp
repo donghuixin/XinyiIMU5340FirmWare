@@ -42,8 +42,7 @@ K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
 
 K_THREAD_STACK_DEFINE(sensor_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
 
-ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
-		 ZBUS_MSG_INIT(0));
+ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY, ZBUS_MSG_INIT(0));
 
 static struct k_poll_signal sensor_manager_sig;
 static struct k_poll_event sensor_manager_evt =

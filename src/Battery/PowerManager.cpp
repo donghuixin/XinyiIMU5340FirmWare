@@ -728,6 +728,13 @@ void PowerManager::charge_task() {
     LOG_INF("Setting up charge controller ........");
     battery_controller.setup(_battery_settings);
     battery_controller.enable_charge();
+  // } else {
+  //   /* Re-write charge current register every cycle to pet BQ25120A's
+  //    * 32-second I2C watchdog timer and prevent parameter reset.       */
+  //   battery_controller.exit_high_impedance();
+  //   battery_controller.write_charging_control(_battery_settings.i_charge);
+  //   battery_controller.write_termination_control(_battery_settings.i_term);
+  //   battery_controller.enter_high_impedance();
   }
 
   // if (last_charging_state != charging_state ||  ) {
