@@ -166,4 +166,6 @@ void KTD2026::getColor(RGBColor *color) {
 }
 
 KTD2026::KTD2026(TWIM *i2c) : _i2c(i2c) {}
+#if KTD2026_ENABLED
 KTD2026 led_controller(&I2C1);
+#endif

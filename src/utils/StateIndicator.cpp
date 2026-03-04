@@ -31,12 +31,14 @@ enum mgmt_cb_return chuck_write_indication(uint32_t event,
                                            size_t data_size) {
   if (event == MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK) {
     /* This is the event we registered for */
+#if KTD2026_ENABLED
     led_controller.setColor(LED_ORANGE);
     k_msleep(10);
     led_controller.setColor(LED_OFF);
+#endif
   }
   /*else if (event == MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK_WRITE_COMPLETE) {
-      led_controller.setColor(LED_OFF);
+      //led_controller.setColor(LED_OFF);
   }
   else if (event == MGMT_EVT_OP_OS_MGMT_RESET) {
               LOG_INF("RESET received");
@@ -81,7 +83,9 @@ ZBUS_LISTENER_DEFINE(power_evt_listen, power_evt_handler); // static
 void StateIndicator::init(struct earable_state state) {
   int ret;
 
+#if KTD2026_ENABLED
   led_controller.begin();
+#endif
 
   ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen3,
                           ZBUS_ADD_OBS_TIMEOUT_MS);
@@ -107,8 +111,10 @@ void StateIndicator::init(struct earable_state state) {
 
 void StateIndicator::set_custom_color(const RGBColor &color) {
   memcpy(&this->color, color, sizeof(RGBColor));
+#if KTD2026_ENABLED
   if (_state.led_mode == CUSTOM)
     led_controller.setColor(color);
+#endif
 }
 
 void StateIndicator::set_indication_mode(enum led_mode state) {
@@ -139,6 +145,7 @@ void StateIndicator::set_state(struct earable_state state) {
           _state.pairing_state, _state.sd_state);
 
   // do not update the state if set to custom color
+#if KTD2026_ENABLED
   if (_state.led_mode == CUSTOM) {
     led_controller.setColor(color);
     return;
@@ -206,6 +213,7 @@ void StateIndicator::set_state(struct earable_state state) {
       }
     }
   }
+#endif /* KTD2026_ENABLED */
 }
 
 StateIndicator::StateIndicator() {}

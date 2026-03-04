@@ -1,6 +1,9 @@
 #ifndef _KTD2026_H
 #define _KTD2026_H
 
+/* Set to 1 to enable KTD2026 LED controller, 0 to disable */
+#define KTD2026_ENABLED 0
+
 #include <math.h>
 #include <zephyr/kernel.h>
 // #include <Wire.h>
@@ -52,6 +55,8 @@ private:
   bool _active = false;
 };
 
+#if KTD2026_ENABLED
 extern KTD2026 led_controller;
+#endif
 
 #endif

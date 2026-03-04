@@ -398,14 +398,15 @@ static void bat_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value) {
 static void fill_bat_pkt(void) {
   /* Use global fuel_gauge from PowerManager */
   float voltage_v = fuel_gauge.voltage();
-  float soc = fuel_gauge.state_of_charge();
+  /* Use voltage-based percentage (same as PowerManager) for consistency */
+  uint8_t soc = PowerManager::voltage_to_percent(voltage_v);
   bool charging = battery_controller.power_connected();
 
   bat_pkt.header[0] = 0xBB;
   bat_pkt.header[1] = 0x66;
   bat_pkt.voltage = voltage_v;
   bat_pkt.isCharging = charging ? 1 : 0;
-  bat_pkt.batteryLevel = (uint8_t)soc;
+  bat_pkt.batteryLevel = soc;
 
   uint16_t voltage_mV = (uint16_t)(voltage_v * 1000.0f);
   uart_printf("[BAT] Voltage=%u mV  SOC=%u%%  Charging=%s\r\n", voltage_mV,
@@ -747,11 +748,12 @@ static void serial_thread(void) {
     if (now - last_bat_check_time >= 5000) { // 5000 毫秒 = 5 秒
       last_bat_check_time = now;             // 重置计时器
 
-      // 查询电量计当前的真实 SOC (State of Charge)
-      float current_soc = fuel_gauge.state_of_charge();
+      // 查询当前电压并转换为百分比 (与 PowerManager 一致)
+      float current_v = fuel_gauge.voltage();
+      uint8_t current_soc = PowerManager::voltage_to_percent(current_v);
 
       // 如果电量低于 30%，则主动打包并发送蓝牙 Notify
-      if (current_soc < 30.0f) {
+      if (current_soc < 30) {
         fill_bat_pkt(); // 调用你已有的函数，更新 bat_pkt 结构体
 
         // 发送给所有订阅了电量特征值的蓝牙主机 (网页)

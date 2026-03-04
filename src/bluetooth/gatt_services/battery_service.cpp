@@ -88,7 +88,8 @@ static ssize_t read_battery_level(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	msg.battery_level = (uint8_t) fuel_gauge.state_of_charge();
+	float voltage = fuel_gauge.voltage();
+	msg.battery_level = PowerManager::voltage_to_percent(voltage);
 
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, &msg.battery_level,
 					 sizeof(msg.battery_level));

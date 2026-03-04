@@ -61,6 +61,8 @@ BT_GATT_PRIMARY_SERVICE(BT_UUID_LED),
 );
 
 int init_led_service() {
+#if KTD2026_ENABLED
 	led_controller.begin();
+#endif
 	return 0;
 }

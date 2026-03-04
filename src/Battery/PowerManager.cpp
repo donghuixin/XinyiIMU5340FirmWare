@@ -28,6 +28,7 @@
 #include "../buttons/Button.h"
 
 #include "../utils/StateIndicator.h"
+#include "../utils/ChargingLED.h"
 
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
@@ -79,6 +80,9 @@ K_WORK_DEFINE(PowerManager::fuel_gauge_work,
               PowerManager::fuel_gauge_work_handler);
 K_WORK_DEFINE(PowerManager::battery_controller_work,
               PowerManager::battery_controller_work_handler);
+
+K_WORK_DELAYABLE_DEFINE(PowerManager::low_bat_report_work,
+                        PowerManager::low_bat_report_work_handler);
 
 ZBUS_CHAN_DEFINE(battery_chan, struct battery_data, NULL, NULL,
                  ZBUS_OBSERVERS_EMPTY, ZBUS_MSG_INIT(0));
@@ -148,11 +152,64 @@ void PowerManager::battery_controller_work_handler(struct k_work *work) {
   }
 }
 
+/* ---------- Voltage-to-percentage mapping ----------
+ * >= 4.2V  → 100%
+ * <= 3.6V  → 30%
+ * Linear interpolation in between.
+ */
+uint8_t PowerManager::voltage_to_percent(float voltage) {
+  if (voltage >= BAT_VOLTAGE_MAX) {
+    return BAT_PERCENT_MAX;
+  }
+  if (voltage <= BAT_VOLTAGE_LOW) {
+    return BAT_PERCENT_LOW;
+  }
+  /* Linear: 30 + (voltage - 3.6) / (4.2 - 3.6) * (100 - 30) */
+  float pct = BAT_PERCENT_LOW +
+              (voltage - BAT_VOLTAGE_LOW) /
+              (BAT_VOLTAGE_MAX - BAT_VOLTAGE_LOW) *
+              (BAT_PERCENT_MAX - BAT_PERCENT_LOW);
+  return (uint8_t)(pct + 0.5f); /* round to nearest integer */
+}
+
+/* ---------- Low-battery periodic BLE report ----------
+ * When voltage < 3.6V and device is still on, this fires every 5 minutes
+ * to push current battery level over BLE (via zbus → battery_service notify).
+ */
+void PowerManager::low_bat_report_work_handler(struct k_work *work) {
+  if (!power_manager.power_on) {
+    power_manager.low_bat_timer_running = false;
+    return;
+  }
+
+  float voltage = fuel_gauge.voltage();
+  msg.battery_level = voltage_to_percent(voltage);
+
+  LOG_WRN("Low-bat periodic report: %.3f V -> %u %%",
+          (double)voltage, msg.battery_level);
+
+  int ret = zbus_chan_pub(&battery_chan, &msg, K_FOREVER);
+  if (ret) {
+    LOG_WRN("low-bat report: zbus publish failed");
+  }
+
+  /* Re-schedule if still below threshold */
+  if (voltage < BAT_VOLTAGE_LOW && power_manager.power_on) {
+    k_work_schedule(&low_bat_report_work, LOW_BAT_REPORT_INTERVAL);
+  } else {
+    power_manager.low_bat_timer_running = false;
+  }
+}
+
 void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
   int ret;
   battery_level_status status;
 
-  msg.battery_level = fuel_gauge.state_of_charge();
+  /* --- Voltage-based battery percentage --- */
+  float voltage = fuel_gauge.voltage();
+  msg.battery_level = voltage_to_percent(voltage);
+
+  LOG_INF("Battery: %.3f V -> %u %%", (double)voltage, msg.battery_level);
 
   bat_status bat = fuel_gauge.battery_status();
 
@@ -174,7 +231,6 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
 
   float current;
   float target_current;
-  float voltage;
 
   battery_controller.exit_high_impedance();
 
@@ -292,6 +348,23 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
 
   power_manager.last_charging_msg_state = msg.charging_state;
 
+  /* --- P1.08 charging LED: breathing when charging, off otherwise --- */
+  switch (msg.charging_state) {
+  case CHARGING:
+  case PRECHARGING:
+  case TRICKLE_CHARGING:
+  case POWER_CONNECTED:
+    charging_led_set_mode(CHARGING_LED_BREATHE_3S);
+    break;
+  case FULLY_CHARGED:
+    /* Solid on when fully charged; reuse blink mode or turn off */
+    charging_led_set_mode(CHARGING_LED_OFF);
+    break;
+  default:
+    charging_led_set_mode(CHARGING_LED_OFF);
+    break;
+  }
+
   // Adjust interval based on state
   if (msg.charging_state == FAULT || msg.charging_state == POWER_CONNECTED) {
     power_manager.chrg_interval =
@@ -306,6 +379,22 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
   if (ret) {
     LOG_WRN("power manager msg queue full");
   }
+
+  /* --- Low-battery periodic BLE report (every 5 min when V < 3.6V) --- */
+  float v_now = fuel_gauge.voltage();
+  if (v_now < BAT_VOLTAGE_LOW && power_manager.power_on) {
+    if (!power_manager.low_bat_timer_running) {
+      LOG_WRN("Low battery (%.3f V), starting 5-min periodic BLE report",
+              (double)v_now);
+      k_work_schedule(&low_bat_report_work, LOW_BAT_REPORT_INTERVAL);
+      power_manager.low_bat_timer_running = true;
+    }
+  } else {
+    if (power_manager.low_bat_timer_running) {
+      k_work_cancel_delayable(&low_bat_report_work);
+      power_manager.low_bat_timer_running = false;
+    }
+  }
 }
 
 int PowerManager::begin() {
@@ -317,6 +406,7 @@ int PowerManager::begin() {
   battery_controller.begin();
   fuel_gauge.begin();
   earable_btn.begin();
+  charging_led_init();
 
   battery_controller.exit_high_impedance();
 
@@ -401,6 +491,9 @@ int PowerManager::begin() {
     oe_state.charging_state = POWER_CONNECTED;
 
     state_indicator.init(oe_state);
+
+    /* Start P1.08 breathing LED while charging */
+    charging_led_set_mode(CHARGING_LED_BREATHE_3S);
 
     k_work_schedule(&charge_ctrl_delayable, K_NO_WAIT);
 
@@ -636,8 +729,10 @@ int PowerManager::power_down(bool fault) {
   // power disonnected
   // prepare interrupts
 
+#if KTD2026_ENABLED
   led_controller.begin();
   led_controller.power_off();
+#endif
 
   stop_sensor_manager();
 
