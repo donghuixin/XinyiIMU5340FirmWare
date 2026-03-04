@@ -21,8 +21,8 @@ XinyiIMU is a dual-core nRF5340-based firmware for a compact, multi-sensor weara
 | Bus  | Pins (SCL / SDA)   | Sensors                                                         |
 |------|--------------------|-----------------------------------------------------------------|
 | I2C1 | P0.24 / P0.21     | BQ25120A (PMIC), BQ27220 (Fuel Gauge), ADAU1860, KTD2026 (LED) |
-| I2C2 | P1.00 / P1.15     | **BMI160 (IMU)**, MAXM86161 (PPG), MLX90632 (Temp)             |
-| I2C3 | P1.02 / P1.03     | BMP388 (Barometer), BMA580 (Bone Conduction)                   |
+| I2C2 | P1.02 / P1.03    | **BMI160 (IMU)**, MAXM86161 (PPG), MLX90632 (Temp)             |
+| I2C3 | P1.00 / P1.15      | BMP388 (Barometer), BMA580 (Bone Conduction)                   |
 
 ## Table of Contents
 
