@@ -74,6 +74,8 @@ private:
     static k_work_delayable low_bat_report_work;
     static void low_bat_report_work_handler(struct k_work *work);
 
+    bool fuel_gauge_available = true;
+
     static void power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);

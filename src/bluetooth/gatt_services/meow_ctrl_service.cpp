@@ -343,11 +343,16 @@ static int serial_batch_counter;
 static volatile int pending_ble_cmd = 0; // 0=none, 1=start, 2=stop, 3=bat
 
 /* Conversion constants (approximate based on standard settings) */
-/* Accel: 2G range -> 16384 LSB/g. 1g = 9.81 m/s^2. Factor = 16384 / 9.81 =
- * 1670.1 */
+/* Old Accel: 2G range -> 16384 LSB/g. 1g = 9.81 m/s^2. Factor = 16384 / 9.81 = 1670.1 */
 #define ACCEL_SCALE_FACTOR 1670.1f
-/* Gyro: 250dps range -> 131.2 LSB/dps. 1dps = 1 degree/s. Factor = 131.2 */
+/* Old Gyro: 250dps range -> 131.2 LSB/dps. 1dps = 1 degree/s. Factor = 131.2 */
 #define GYRO_SCALE_FACTOR 131.2f
+
+/* New Scale Factors for 16G and 2000DPS (as configured in IMU::init) */
+/* Accel: 16G range -> 2048 LSB/g. 1g = 9.80665 m/s^2. Factor = 2048 / 9.80665 = 208.837f */
+// #define ACCEL_SCALE_FACTOR 208.837f
+// /* Gyro: 2000dps range -> 16.384 LSB/dps. Factor = 16.384f */
+// #define GYRO_SCALE_FACTOR 16.384f
 
 /* ================================================================== */
 /*  Forward declarations                                               */

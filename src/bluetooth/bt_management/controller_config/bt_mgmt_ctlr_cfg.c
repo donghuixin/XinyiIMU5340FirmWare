@@ -7,6 +7,7 @@
 #include "bt_mgmt_ctlr_cfg_internal.h"
 
 #include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/hci_vs.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/drivers/watchdog.h>
 #include <zephyr/task_wdt/task_wdt.h>
@@ -98,6 +99,50 @@ int bt_mgmt_ctlr_cfg_manufacturer_get(bool print_version, uint16_t *manufacturer
 	return 0;
 }
 
+int bt_mgmt_ctlr_cfg_set_tx_power(int8_t power) {
+  int ret;
+  struct net_buf *buf, *rsp;
+  struct bt_hci_cp_vs_write_tx_power_level *cp;
+
+  buf = bt_hci_cmd_create(BT_HCI_OP_VS_WRITE_TX_POWER_LEVEL, sizeof(*cp));
+  if (!buf) {
+    LOG_ERR("Failed to create HCI command buffer");
+    return -ENOBUFS;
+  }
+
+  cp = net_buf_add(buf, sizeof(*cp));
+  cp->handle_type = BT_HCI_VS_LL_HANDLE_TYPE_ADV;
+  cp->handle = 0;
+  cp->tx_power_level = power;
+
+  ret = bt_hci_cmd_send_sync(BT_HCI_OP_VS_WRITE_TX_POWER_LEVEL, buf, &rsp);
+  if (ret) {
+    LOG_ERR("Set TX power (ADV) failed (err %d)", ret);
+    return ret;
+  }
+  net_buf_unref(rsp);
+
+  buf = bt_hci_cmd_create(BT_HCI_OP_VS_WRITE_TX_POWER_LEVEL, sizeof(*cp));
+  if (!buf) {
+    return -ENOBUFS;
+  }
+
+  cp = net_buf_add(buf, sizeof(*cp));
+  cp->handle_type = BT_HCI_VS_LL_HANDLE_TYPE_CONN;
+  cp->handle = 0;
+  cp->tx_power_level = power;
+
+  ret = bt_hci_cmd_send_sync(BT_HCI_OP_VS_WRITE_TX_POWER_LEVEL, buf, &rsp);
+  if (ret) {
+    LOG_ERR("Set TX power (CONN) failed (err %d)", ret);
+    return ret;
+  }
+  net_buf_unref(rsp);
+
+  LOG_INF("TX Power set to %d dBm", power);
+  return 0;
+}
+
 int bt_mgmt_ctlr_cfg_init(bool watchdog_enable)
 {
 	int ret;
@@ -106,6 +151,12 @@ int bt_mgmt_ctlr_cfg_init(bool watchdog_enable)
 	ret = bt_mgmt_ctlr_cfg_manufacturer_get(true, &manufacturer);
 	if (ret) {
 		return ret;
+	}
+
+	/* Set TX power to +8 dBm */
+	ret = bt_mgmt_ctlr_cfg_set_tx_power(8);
+	if (ret) {
+		LOG_ERR("Failed to set TX power: %d", ret);
 	}
 
 	if (watchdog_enable) {

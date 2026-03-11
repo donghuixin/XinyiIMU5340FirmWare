@@ -206,18 +206,42 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
   battery_level_status status;
 
   /* --- Voltage-based battery percentage --- */
-  float voltage = fuel_gauge.voltage();
+  float voltage = 3.8f; // Default safe value
+  bat_status bat = {0}; // Zero status
+  gauge_status gs = {0};
+
+  if (power_manager.fuel_gauge_available) {
+    voltage = fuel_gauge.voltage();
+
+    /* Safety check: If I2C read fails or returns 0V, use a safe default 3.8V
+     * to prevent accidental system shutdown.
+     */
+    if (voltage < 2.0f) {
+      LOG_WRN("Fuel Gauge read failed (%.3f V)! Using safe default 3.8V.",
+              (double)voltage);
+      voltage = 3.8f;
+    }
+  } else {
+    // skip actual I2C reads if device was not found during scan
+  }
+
   msg.battery_level = voltage_to_percent(voltage);
 
   LOG_INF("Battery: %.3f V -> %u %%", (double)voltage, msg.battery_level);
 
-  bat_status bat = fuel_gauge.battery_status();
+  if (power_manager.fuel_gauge_available) {
+    bat = fuel_gauge.battery_status();
+  }
 
   power_manager.get_battery_status(status);
 
   // full discharge
   // if (bat.FD) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
-  if (power_manager.power_on && bat.SYSDWN) {
+  
+  /* Double check: Only allow SYSDWN if voltage is actually low and valid.
+   * If voltage was forced to 3.8V by safety check, this won't trigger.
+   */
+  if (power_manager.power_on && bat.SYSDWN && voltage < 3.3f) {
     LOG_WRN("Battery reached system down voltage.");
     k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
   }
@@ -235,7 +259,6 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
   battery_controller.exit_high_impedance();
 
   uint16_t charging_state = battery_controller.read_charging_state() >> 6;
-  gauge_status gs;
 
   switch (charging_state) {
   case 0:
@@ -256,21 +279,29 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
   case 1:
     LOG_INF("charging state: charging");
 
-    if (bat.SYSDWN) {
+    if (bat.SYSDWN && power_manager.fuel_gauge_available) {
       msg.charging_state = PRECHARGING;
       break;
     }
 
-    current = fuel_gauge.current();
-    target_current = fuel_gauge.charge_current();
-    voltage = fuel_gauge.voltage();
+    if (power_manager.fuel_gauge_available) {
+      current = fuel_gauge.current();
+      target_current = fuel_gauge.charge_current();
+      voltage = fuel_gauge.voltage();
+    } else {
+      current = 0;
+      target_current = 100; // dummy
+      voltage = 3.8f;
+    }
 
     msg.charging_state = POWER_CONNECTED;
 
     LOG_DBG("Voltage: %.3f V", (double)voltage);
     LOG_DBG("Charging current: %.3f mA", (double)current);
     LOG_DBG("Target current: %.3f mA", (double)target_current);
-    LOG_DBG("State of charge: %.3f %%", (double)fuel_gauge.state_of_charge());
+    if (power_manager.fuel_gauge_available) {
+      LOG_DBG("State of charge: %.3f %%", (double)fuel_gauge.state_of_charge());
+    }
 
     // check if target current is met (if not tapering)
     if (current >
@@ -381,7 +412,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
   }
 
   /* --- Low-battery periodic BLE report (every 5 min when V < 3.6V) --- */
-  float v_now = fuel_gauge.voltage();
+  float v_now = 3.8f;
+  if (power_manager.fuel_gauge_available) {
+    v_now = fuel_gauge.voltage();
+  }
   if (v_now < BAT_VOLTAGE_LOW && power_manager.power_on) {
     if (!power_manager.low_bat_timer_running) {
       LOG_WRN("Low battery (%.3f V), starting 5-min periodic BLE report",
@@ -398,6 +432,24 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *work) {
 }
 
 int PowerManager::begin() {
+  /* --- I2C1 Bus Scan (Debug) --- */
+  LOG_INF("Scanning I2C1 bus (SDA: P0.21, SCL: P0.24)...");
+  uint8_t dummy_data;
+  fuel_gauge_available = false;
+  for (uint8_t addr = 0x01; addr < 0x7F; addr++) {
+    int ret = i2c_reg_read_byte(I2C1.master, addr, 0x00, &dummy_data);
+    if (ret == 0) {
+      LOG_INF("Found I2C device at address: 0x%02x", addr);
+      if (addr == 0x55) {
+        fuel_gauge_available = true;
+      }
+    }
+  }
+  if (!fuel_gauge_available) {
+    LOG_WRN("BQ27220 (0x55) not found on I2C1. Disabling communication to prevent I2C bus congestion.");
+  }
+  LOG_INF("I2C1 scan complete.");
+
   earable_state oe_state;
 
   oe_state.charging_state = DISCHARGING;
@@ -447,15 +499,20 @@ int PowerManager::begin() {
   battery_controller.set_int_callback(battery_controller_callback);
 
   // check setup
-  op_state state = fuel_gauge.operation_state();
-  if (state.SEC != BQ27220::SEALED) {
-    // battery_controller.setup();
-    fuel_gauge.setup(_battery_settings);
+  if (power_manager.fuel_gauge_available) {
+    op_state state = fuel_gauge.operation_state();
+    if (state.SEC != BQ27220::SEALED) {
+      // battery_controller.setup();
+      fuel_gauge.setup(_battery_settings);
+    }
   }
 
   // k_timer_init(&charge_timer, charge_timer_handler, NULL);
 
-  bool battery_condition = check_battery();
+  bool battery_condition = true;
+  if (power_manager.fuel_gauge_available) {
+    battery_condition = check_battery();
+  }
 
   if (!battery_condition)
     LOG_WRN("Battery check failed.");
