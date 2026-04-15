@@ -171,7 +171,6 @@
             <div class="flex gap-2">
                 <button onclick="syncAll('s')" class="btn-apple bg-green-500 text-white px-4 py-1.5 text-xs hover:bg-green-600">▶ 同步开启</button>
                 <button onclick="syncAll('p')" class="btn-apple bg-red-500 text-white px-4 py-1.5 text-xs hover:bg-red-600">■ 同步停止</button>
-                <!-- 修改发送指令为 'b' -->
                 <button onclick="syncAll('b')" class="btn-apple bg-yellow-500 text-yellow-950 px-4 py-1.5 text-xs hover:bg-yellow-400">⚡ 单次查电</button>
                 <button onclick="saveAllLogs()" class="btn-apple bg-blue-600 text-white px-4 py-1.5 text-xs hover:bg-blue-700">↓ 保存日志</button>
             </div>
@@ -200,7 +199,7 @@
         </div>
     </header>
 
-    <!-- 实时电量折线图悬浮组件 (默认隐藏) -->
+    <!-- 实时电量折线图悬浮组件 -->
     <div id="battery-chart-widget" class="fixed top-[130px] right-6 w-[480px] max-w-[calc(100vw-3rem)] h-[320px] glass-card z-50 flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.15)] chart-popup-enter hidden">
         <div class="flex justify-between items-center px-5 py-3 border-b border-gray-200/50 bg-white/30 rounded-t-[20px]">
             <div class="flex items-center gap-2">
@@ -223,7 +222,7 @@
         </div>
     </main>
 
-    <!-- 底部全局控制台 (高度大幅增加至 32vh，至少占 250px 空间) -->
+    <!-- 底部全局控制台 -->
     <footer class="glass-panel rounded-2xl h-[32vh] min-h-[250px] shrink-0 flex flex-col z-10 mx-1 mb-1">
         <div class="bg-gray-100/50 border-b border-gray-200/50 px-4 py-2 flex justify-between items-center rounded-t-2xl">
             <span class="text-xs font-semibold text-gray-700 font-mono">Terminal Output</span>
@@ -251,6 +250,30 @@
         let devIdCounter = 0; 
         let globalLogArchive = [];
 
+        /* ==============================================================
+         * 电池电量标准映射算法 (Piecewise Linear Curve)
+         * 基于 4.35V = 100% 到 3.0V = 0% 重新归一化
+         * ============================================================== */
+        function getBatteryPercentage(voltage) {
+            if (voltage >= 4.35) return 100;
+            if (voltage <= 3.00) return 0;
+
+            // 依据标准锂电池放电曲线，划分不同电压区间进行线性插值
+            if (voltage >= 4.20) {
+                return 90 + ((voltage - 4.20) / (4.35 - 4.20)) * 10;
+            } else if (voltage >= 4.00) {
+                return 80 + ((voltage - 4.00) / (4.20 - 4.00)) * 10;
+            } else if (voltage >= 3.80) {
+                return 50 + ((voltage - 3.80) / (4.00 - 3.80)) * 30;
+            } else if (voltage >= 3.60) {
+                return 20 + ((voltage - 3.60) / (3.80 - 3.60)) * 30;
+            } else if (voltage >= 3.30) {
+                return 5 + ((voltage - 3.30) / (3.60 - 3.30)) * 15;
+            } else {
+                return ((voltage - 3.00) / (3.30 - 3.00)) * 5;
+            }
+        }
+
         function recordToArchive(source, msg) {
             const date = new Date();
             const timeStr = `${date.toLocaleString()}.${date.getMilliseconds().toString().padStart(3, '0')}`;
@@ -265,7 +288,6 @@
         function initBatteryChart() {
             const ctx = document.getElementById('batteryChart').getContext('2d');
             
-            // 使用 Chart.js 构建双Y轴、圆滑曲线的 iOS 风格图表
             batteryChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -281,7 +303,7 @@
                             pointBorderColor: '#007AFF',
                             pointRadius: 3,
                             pointHoverRadius: 5,
-                            tension: 0.4, // 平滑曲线
+                            tension: 0.4, 
                             fill: true,
                             yAxisID: 'y'
                         },
@@ -295,7 +317,7 @@
                             pointBorderColor: '#34C759',
                             pointRadius: 3,
                             pointHoverRadius: 5,
-                            tension: 0.4, // 平滑曲线
+                            tension: 0.4, 
                             fill: true,
                             yAxisID: 'y1'
                         }
@@ -339,8 +361,8 @@
                             type: 'linear',
                             display: true,
                             position: 'left',
-                            min: 3.2, // 根据普通锂电池电压阈值设定
-                            max: 4.3,
+                            min: 3.0, // 更新量程最小值
+                            max: 4.4, // 更新量程最大值 (包含4.35V)
                             title: { display: true, text: 'Voltage (V)', font: { size: 10, weight: '500' } },
                             grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
                             ticks: { color: '#007AFF', font: { size: 10 } }
@@ -363,8 +385,7 @@
         function showBatteryChart() {
             const widget = document.getElementById('battery-chart-widget');
             widget.classList.remove('hidden');
-            // 触发回流执行过渡动画
-            void widget.offsetWidth;
+            void widget.offsetWidth; // 触发重绘
             widget.classList.remove('chart-popup-enter');
             widget.classList.add('chart-popup-active');
             
@@ -382,7 +403,6 @@
             }, 400);
         }
 
-        // 定时提取并更新图表数据
         function updateBatteryChart() {
             if (!batteryChartInstance) return;
             
@@ -390,7 +410,6 @@
             let totalLevel = 0;
             let count = 0;
             
-            // 聚合当前所有已连接设备的最新电量
             Object.values(imus).forEach(imu => {
                 if (imu.connected && imu.lastBat && imu.lastBat.volt > 0) {
                     totalVolt += imu.lastBat.volt;
@@ -399,7 +418,7 @@
                 }
             });
             
-            if (count === 0) return; // 尚无数据回传
+            if (count === 0) return;
 
             const avgVolt = parseFloat((totalVolt / count).toFixed(2));
             const avgLevel = Math.round(totalLevel / count);
@@ -410,7 +429,6 @@
             batteryChartInstance.data.datasets[0].data.push(avgVolt);
             batteryChartInstance.data.datasets[1].data.push(avgLevel);
 
-            // 保持折线图仅展示最近 30 条数据点，防止拥挤
             if (batteryChartInstance.data.labels.length > 30) {
                 batteryChartInstance.data.labels.shift();
                 batteryChartInstance.data.datasets[0].data.shift();
@@ -660,15 +678,17 @@
                 const dv = new DataView(raw.buffer, raw.byteOffset, BAT_PACKET_SIZE);
                 const voltNum = parseFloat(dv.getFloat32(2, true).toFixed(2));
                 const isCharging = dv.getUint8(6) === 1;
-                const levelNum = dv.getUint8(7);
+                
+                // 忽略硬件原生电量(dv.getUint8(7))，采用新分段曲线计算真实剩余容量
+                const levelNum = Math.round(getBatteryPercentage(voltNum));
 
                 const batEl = document.getElementById(`bat-${key}`);
                 const chargingIcon = isCharging ? '<span class="text-green-600 font-bold charging-indicator ml-1">⚡</span>' : '';
                 batEl.innerHTML = `${voltNum.toFixed(2)}V (${levelNum}%)${chargingIcon}`;
 
                 let batClass = 'text-green-700 bg-green-100/80';
-                if (voltNum < 3.5) batClass = 'text-red-700 bg-red-100/80';
-                else if (voltNum < 3.8) batClass = 'text-amber-700 bg-amber-100/80';
+                if (voltNum < 3.3) batClass = 'text-red-700 bg-red-100/80';
+                else if (voltNum < 3.6) batClass = 'text-amber-700 bg-amber-100/80';
                 batEl.className = `text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${batClass}`;
 
                 imu.lastBat = { volt: voltNum, level: levelNum, charging: isCharging };
@@ -706,14 +726,12 @@
         function toggleAutoBat() {
             const btn = document.getElementById('btn-auto-bat');
             if (autoBatTimer) {
-                // 关闭任务
                 clearInterval(autoBatTimer);
                 autoBatTimer = null;
                 btn.innerText = '启动任务';
                 btn.classList.replace('bg-indigo-600', 'bg-indigo-500');
                 addLog('已停止电量自动轮询任务。', 'warning');
             } else {
-                // 开启任务
                 const val = parseInt(document.getElementById('bat-num').value, 10);
                 const multiplier = parseInt(document.getElementById('bat-unit').value, 10);
                 const ms = val * multiplier;
@@ -723,17 +741,13 @@
                     return;
                 }
 
-                // 显示图表弹出层
                 showBatteryChart();
 
-                // 立即执行一次获取指令，并等待 1000ms 给蓝牙回传时间后更新图表
                 syncAll('b');
                 setTimeout(updateBatteryChart, 1000);
 
-                // 启动定时器
                 autoBatTimer = setInterval(() => {
                     syncAll('b');
-                    // 同样延时 1000ms 后获取最新的 aggregated 数据去更新绘图
                     setTimeout(updateBatteryChart, 1000);
                 }, ms);
 
@@ -765,7 +779,6 @@
             logContainer.appendChild(div);
             logContainer.scrollTop = logContainer.scrollHeight;
             
-            // 终端增大后容纳更多，把保存量提高到200条显示
             while (logContainer.children.length > 200) {
                 logContainer.removeChild(logContainer.firstChild);
             }
