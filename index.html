@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Huixin IMU Sync Console - Pro Max</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Chart.js 用于绘制精美的 iOS 风格折线图 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* 引入更现代的字体，优先使用苹果系统自带字体 */
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
@@ -45,18 +47,18 @@
         }
 
         .glass-card {
-            background: rgba(255, 255, 255, 0.6);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
             border-radius: 20px;
             overflow: hidden;
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
 
         .glass-card:hover {
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
             transform: translateY(-2px);
         }
 
@@ -141,12 +143,23 @@
 
         .charging-indicator { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* 图表弹出动画 */
+        .chart-popup-enter {
+            opacity: 0;
+            transform: scale(0.95) translateY(-20px);
+        }
+        .chart-popup-active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
     </style>
 </head>
 
-<body class="p-3 gap-3">
+<body class="p-3 gap-3 relative">
     <!-- 顶部控制台 -->
-    <header class="glass-panel rounded-2xl flex flex-col gap-3 px-6 py-4 z-10">
+    <header class="glass-panel rounded-2xl flex flex-col gap-3 px-6 py-4 z-10 shrink-0">
         <div class="flex justify-between items-center">
             <div class="flex items-center gap-4">
                 <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-md">H</div>
@@ -182,10 +195,26 @@
                     <option value="60000" selected>分</option>
                     <option value="3600000">时</option>
                 </select>
-                <button id="btn-auto-bat" onclick="toggleAutoBat()" class="btn-apple bg-indigo-500 text-white px-4 py-1 text-xs hover:bg-indigo-600">启动任务</button>
+                <button id="btn-auto-bat" onclick="toggleAutoBat()" class="btn-apple bg-indigo-500 text-white px-4 py-1 text-xs hover:bg-indigo-600 transition-colors">启动任务</button>
             </div>
         </div>
     </header>
+
+    <!-- 实时电量折线图悬浮组件 (默认隐藏) -->
+    <div id="battery-chart-widget" class="fixed top-[130px] right-6 w-[480px] max-w-[calc(100vw-3rem)] h-[320px] glass-card z-50 flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.15)] chart-popup-enter hidden">
+        <div class="flex justify-between items-center px-5 py-3 border-b border-gray-200/50 bg-white/30 rounded-t-[20px]">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                <span class="text-xs font-semibold text-gray-800">全阵列平均电量趋势</span>
+            </div>
+            <button onclick="hideBatteryChart()" class="w-6 h-6 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 text-gray-500 transition-colors">
+                ✕
+            </button>
+        </div>
+        <div class="flex-1 p-3 bg-white/20 relative">
+            <canvas id="batteryChart"></canvas>
+        </div>
+    </div>
 
     <!-- 主展示网格 -->
     <main class="flex-1 overflow-y-auto custom-scrollbar relative z-0">
@@ -194,13 +223,13 @@
         </div>
     </main>
 
-    <!-- 底部全局控制台 -->
-    <footer class="glass-panel rounded-2xl h-32 flex flex-col z-10 mx-1 mb-1">
-        <div class="bg-gray-100/50 border-b border-gray-200/50 px-4 py-1.5 flex justify-between items-center rounded-t-2xl">
+    <!-- 底部全局控制台 (高度大幅增加至 32vh，至少占 250px 空间) -->
+    <footer class="glass-panel rounded-2xl h-[32vh] min-h-[250px] shrink-0 flex flex-col z-10 mx-1 mb-1">
+        <div class="bg-gray-100/50 border-b border-gray-200/50 px-4 py-2 flex justify-between items-center rounded-t-2xl">
             <span class="text-xs font-semibold text-gray-700 font-mono">Terminal Output</span>
-            <span class="text-[10px] text-gray-500">Auto-scrolling</span>
+            <span class="text-[10px] text-gray-500">Auto-scrolling log viewer</span>
         </div>
-        <div id="global-log" class="flex-1 overflow-y-auto p-3 text-[11px] space-y-1 custom-scrollbar text-gray-700 font-mono">
+        <div id="global-log" class="flex-1 overflow-y-auto p-4 text-xs space-y-1.5 custom-scrollbar text-gray-700 font-mono leading-relaxed">
             <div class="text-blue-600 font-semibold">System Initialization Complete. Pro Max UI Loaded.</div>
             <div>[Tip] 点击网格中的 "+" 号添加新的设备连接槽位。</div>
             <div>[Info] 实时监听加速度与角速度(6轴)及电池状态...</div>
@@ -229,7 +258,170 @@
         }
 
         /* ==============================================================
-         * UI 动态初始化及卡片管理 (重构毛玻璃卡片结构)
+         * 折线图相关 (Chart.js)
+         * ============================================================== */
+        let batteryChartInstance = null;
+
+        function initBatteryChart() {
+            const ctx = document.getElementById('batteryChart').getContext('2d');
+            
+            // 使用 Chart.js 构建双Y轴、圆滑曲线的 iOS 风格图表
+            batteryChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '平均电压 (V)',
+                            data: [],
+                            borderColor: '#007AFF', // iOS 蓝
+                            backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#007AFF',
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.4, // 平滑曲线
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '平均电量 (%)',
+                            data: [],
+                            borderColor: '#34C759', // iOS 绿
+                            backgroundColor: 'rgba(52, 199, 89, 0.05)',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#34C759',
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.4, // 平滑曲线
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                boxWidth: 8,
+                                font: { family: '-apple-system', size: 11, weight: '500' }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                            titleColor: '#000',
+                            bodyColor: '#333',
+                            borderColor: 'rgba(0,0,0,0.1)',
+                            borderWidth: 1,
+                            padding: 10,
+                            boxPadding: 4,
+                            usePointStyle: true,
+                            titleFont: { family: '-apple-system', size: 12 },
+                            bodyFont: { family: '-apple-system', size: 11 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 }, maxTicksLimit: 6, color: '#666' }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            min: 3.2, // 根据普通锂电池电压阈值设定
+                            max: 4.3,
+                            title: { display: true, text: 'Voltage (V)', font: { size: 10, weight: '500' } },
+                            grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+                            ticks: { color: '#007AFF', font: { size: 10 } }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: 0,
+                            max: 100,
+                            title: { display: true, text: 'Capacity (%)', font: { size: 10, weight: '500' } },
+                            grid: { drawOnChartArea: false, drawBorder: false },
+                            ticks: { color: '#34C759', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showBatteryChart() {
+            const widget = document.getElementById('battery-chart-widget');
+            widget.classList.remove('hidden');
+            // 触发回流执行过渡动画
+            void widget.offsetWidth;
+            widget.classList.remove('chart-popup-enter');
+            widget.classList.add('chart-popup-active');
+            
+            if (!batteryChartInstance) {
+                initBatteryChart();
+            }
+        }
+
+        function hideBatteryChart() {
+            const widget = document.getElementById('battery-chart-widget');
+            widget.classList.remove('chart-popup-active');
+            widget.classList.add('chart-popup-enter');
+            setTimeout(() => {
+                widget.classList.add('hidden');
+            }, 400);
+        }
+
+        // 定时提取并更新图表数据
+        function updateBatteryChart() {
+            if (!batteryChartInstance) return;
+            
+            let totalVolt = 0;
+            let totalLevel = 0;
+            let count = 0;
+            
+            // 聚合当前所有已连接设备的最新电量
+            Object.values(imus).forEach(imu => {
+                if (imu.connected && imu.lastBat && imu.lastBat.volt > 0) {
+                    totalVolt += imu.lastBat.volt;
+                    totalLevel += imu.lastBat.level;
+                    count++;
+                }
+            });
+            
+            if (count === 0) return; // 尚无数据回传
+
+            const avgVolt = parseFloat((totalVolt / count).toFixed(2));
+            const avgLevel = Math.round(totalLevel / count);
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+            batteryChartInstance.data.labels.push(timeStr);
+            batteryChartInstance.data.datasets[0].data.push(avgVolt);
+            batteryChartInstance.data.datasets[1].data.push(avgLevel);
+
+            // 保持折线图仅展示最近 30 条数据点，防止拥挤
+            if (batteryChartInstance.data.labels.length > 30) {
+                batteryChartInstance.data.labels.shift();
+                batteryChartInstance.data.datasets[0].data.shift();
+                batteryChartInstance.data.datasets[1].data.shift();
+            }
+            
+            batteryChartInstance.update();
+        }
+
+        /* ==============================================================
+         * UI 动态初始化及卡片管理
          * ============================================================== */
         function initUI() {
             const container = document.getElementById('master-container');
@@ -504,7 +696,6 @@
         }
 
         function syncAll(cmd) {
-            // 依据要求：查询电量指令由 'BAT' 更改为 'b'
             const cmdStr = cmd === 'b' ? 'b' : cmd;
             const cmdName = cmd === 's' ? '同步开启采样' : cmd === 'p' ? '同步停止采样' : cmd === 'b' ? '批量查询电量' : cmd;
             Object.keys(imus).forEach(k => sendCmd(k, cmdStr));
@@ -515,13 +706,14 @@
         function toggleAutoBat() {
             const btn = document.getElementById('btn-auto-bat');
             if (autoBatTimer) {
+                // 关闭任务
                 clearInterval(autoBatTimer);
                 autoBatTimer = null;
                 btn.innerText = '启动任务';
                 btn.classList.replace('bg-indigo-600', 'bg-indigo-500');
-                btn.classList.replace('shadow-inner', 'shadow-sm');
                 addLog('已停止电量自动轮询任务。', 'warning');
             } else {
+                // 开启任务
                 const val = parseInt(document.getElementById('bat-num').value, 10);
                 const multiplier = parseInt(document.getElementById('bat-unit').value, 10);
                 const ms = val * multiplier;
@@ -531,18 +723,24 @@
                     return;
                 }
 
-                // 发送 'b' 获取电量
-                syncAll('b');
+                // 显示图表弹出层
+                showBatteryChart();
 
+                // 立即执行一次获取指令，并等待 1000ms 给蓝牙回传时间后更新图表
+                syncAll('b');
+                setTimeout(updateBatteryChart, 1000);
+
+                // 启动定时器
                 autoBatTimer = setInterval(() => {
                     syncAll('b');
+                    // 同样延时 1000ms 后获取最新的 aggregated 数据去更新绘图
+                    setTimeout(updateBatteryChart, 1000);
                 }, ms);
 
                 const unitText = document.getElementById('bat-unit').options[document.getElementById('bat-unit').selectedIndex].text;
                 btn.innerText = '停止任务';
                 btn.classList.replace('bg-indigo-500', 'bg-indigo-600');
-                btn.classList.replace('shadow-sm', 'shadow-inner');
-                addLog(`自动轮询启动成功，触发间隔: ${val}${unitText}。`, 'success');
+                addLog(`自动轮询启动成功，触发间隔: ${val}${unitText}。折线图跟踪已就绪。`, 'success');
             }
         }
 
@@ -560,13 +758,15 @@
             if (type === 'info') colorClass = 'text-blue-600';
 
             const div = document.createElement('div');
-            div.className = `${colorClass} border-b border-gray-200/50 pb-1`;
+            div.className = `${colorClass} border-b border-gray-200/50 pb-1.5`;
             div.innerHTML = `<span class="text-gray-400 mr-2">[${new Date().toLocaleTimeString()}]</span>${msg}`;
             
             const logContainer = document.getElementById('global-log');
             logContainer.appendChild(div);
             logContainer.scrollTop = logContainer.scrollHeight;
-            while (logContainer.children.length > 100) {
+            
+            // 终端增大后容纳更多，把保存量提高到200条显示
+            while (logContainer.children.length > 200) {
                 logContainer.removeChild(logContainer.firstChild);
             }
         }
